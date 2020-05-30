@@ -1,0 +1,14 @@
+﻿  D3DUtility.cpp
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\D3DUtility.cpp(208,12): warning C4305: 'return': 從 'int' 轉換為 'bool'，是由較大的類型轉換為較小的類型，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\D3DUtility.cpp(217,20): warning C4018: '<': signed/unsigned 不相符
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\D3DUtility.cpp(231,12): warning C4305: 'return': 從 'int' 轉換為 'bool'，是由較大的類型轉換為較小的類型，可能導致資料遺失
+  main.cpp
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\D3DUtility.cpp(274,12): warning C4244: 'return': 將 'WPARAM' 轉換為 'int'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(87,17): warning C4244: '正在初始化': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(88,17): warning C4244: '正在初始化': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(89,17): warning C4244: '正在初始化': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(93,23): warning C4244: '=': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(94,23): warning C4244: '=': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+  正在產生程式碼...
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(95,23): warning C4244: '=': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+  Chapter 3.vcxproj -> D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\x64\Debug\Chapter 3.exe
