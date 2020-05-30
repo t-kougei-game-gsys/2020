@@ -1,3 +1,8 @@
 ﻿  main.cpp
-D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(311,20): warning C4018: '<': signed/unsigned 不相符
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(87,17): warning C4244: '正在初始化': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(88,17): warning C4244: '正在初始化': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(89,17): warning C4244: '正在初始化': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(93,23): warning C4244: '=': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(94,23): warning C4244: '=': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
+D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Chapter 3\main.cpp(95,23): warning C4244: '=': 將 'double' 轉換為 'float'，由於類型不同，可能導致資料遺失
   Chapter 3.vcxproj -> D:\My\Tokyo Polytechnic University\ゲームシステム特論\2020\Chapter 3\Debug\Chapter 3.exe
