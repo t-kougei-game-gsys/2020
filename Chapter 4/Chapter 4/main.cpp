@@ -50,18 +50,18 @@ void EnableDebugLayer () {
 	}
 }
 
-int index = 1;
+int _currentTriangleIndex = 0;
 void NextTriangle () {
-	index++;
-	if (index > 5) {
-		index = 1;
+	_currentTriangleIndex++;
+	if (_currentTriangleIndex > 5) {
+		_currentTriangleIndex = 1;
 	}
 }
 
 void PrevTriangle () {
-	index--;
-	if (index < 1) {
-		index = 5;
+	_currentTriangleIndex--;
+	if (_currentTriangleIndex < 1) {
+		_currentTriangleIndex = 5;
 	}
 }
 
@@ -87,35 +87,38 @@ bool Display (float deltaTime) {
 	_cmdList->RSSetScissorRects (1, &_scissorrect);
 	_cmdList->SetGraphicsRootSignature (_rootSignature);
 	
-	switch (index) {
-		case 1:
+	switch (_currentTriangleIndex % 5) {
+		case 0:
 			_cmdList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			_cmdList->IASetVertexBuffers (0, 1, &_vbView);
 			_cmdList->DrawInstanced (3, 1, 0, 0);
 			break;
-		case 2:
+		case 1:
 			_cmdList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			_cmdList->IASetVertexBuffers (0, 1, &_vbView2);
 			_cmdList->DrawInstanced (3, 1, 0, 0);
 			break;
-		case 3:
+		case 2:
 			_cmdList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 			_cmdList->IASetVertexBuffers (0, 1, &_vbView3);
 			_cmdList->DrawInstanced (4, 1, 0, 0);
 			break;
-		case 4:
+		case 3:
 			_cmdList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			_cmdList->IASetVertexBuffers (0, 1, &_vbView4);
 			_cmdList->IASetIndexBuffer (&_ibView);
 			// index : 6個
 			_cmdList->DrawIndexedInstanced (6, 1, 0, 0, 0);
 			break;
-		case 5:
+		case 4:
 			_cmdList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			_cmdList->IASetVertexBuffers (0, 1, &_vbView5);
 			_cmdList->IASetIndexBuffer (&_ibView2);
 			// index : 12個
 			_cmdList->DrawIndexedInstanced (12, 1, 0, 0, 0);
+			break;
+		default:
+			printf_s ("ERROR : CurrentTriangleIndex out of bounds");
 			break;
 	}
 
@@ -153,9 +156,11 @@ LRESULT CALLBACK D3D::WndProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 			if (wParam == VK_ESCAPE)
 				DestroyWindow (hwnd);
 			else if (wParam == VK_RIGHT)
-				NextTriangle ();
+				_currentTriangleIndex++;
+				//NextTriangle ();
 			else if (wParam == VK_LEFT)
-				PrevTriangle ();
+				_currentTriangleIndex = (_currentTriangleIndex + 4) % 5;
+				//PrevTriangle ();
 	}
 
 	return DefWindowProc (hwnd, msg, wParam, lParam);
@@ -392,7 +397,7 @@ bool Setup () {
 		1. vertex data
 		2. vertex shader & pixel shader
 		3. vertex layout : 解釋這一塊數據代表甚麼, 例如vertices is position data.
-		4.
+		4. root signature
 		5. pipeline state
 	*/
 
