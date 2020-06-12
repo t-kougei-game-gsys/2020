@@ -1,85 +1,41 @@
-#include <Windows.h>
-#include <time.h>
-
 #include "D3DUtility.h"
 
-#ifdef _DEBUG
-#include<iostream>
-#endif
+#include <iostream>
+#include <time.h>
 
+using namespace D3D;
 
+const unsigned int window_width = 1280;
+const unsigned int window_height = 720;
 
-void DebugOutputFormatString (const char* format, ...) {
-#ifdef _DEBUG
-	va_list valist;
-	va_start (valist, format);
-	printf_s (format, valist);
-	va_end (valist);
-#endif
-}
-
-//
-// 將DX的錯誤消息顯示到"輸出窗口"
-//
-void EnableDebugLayer () {
-	ID3D12Debug* debugLayer = 0;
-	if (SUCCEEDED (D3D12GetDebugInterface (IID_PPV_ARGS (&debugLayer)))) {
-		debugLayer->EnableDebugLayer ();
-		debugLayer->Release ();
-	}
-}
-
-bool _tearingSupport = false;
-
-//
-// Check tearing feature.
-//
-void CheckTearingSupport () {
-#ifndef PIXSUPPORT
-	IDXGIFactory6* factory;
-	HRESULT hr = CreateDXGIFactory1 (IID_PPV_ARGS (&factory));
-	BOOL allowTearing = false;
-	if (SUCCEEDED (hr)) {
-		hr = factory->CheckFeatureSupport (DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearing, sizeof (allowTearing));
-	}
-
-	_tearingSupport = SUCCEEDED (hr) && allowTearing;
-#else
-	_tearingSupport = TRUE;
-#endif
-}
-
-bool Setup () {
-
-	return true;
-}
+D3D_DESC _d3dDesc = {};
 
 bool Display (float deltaTime) {
 	//
-	// Step 6 : Render to rtv.
+	// step 7 : Render to rtv.
 	//
 
-	// current back buffer.
-	auto bbIdx = _swapChain->GetCurrentBackBufferIndex ();
+	// step 7.1 : Get current back buffer index
 
-	_barrierDesc.Transition.pResource = _backBuffers[bbIdx];
-	_barrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	_barrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	_cmdList->ResourceBarrier (1, &_barrierDesc);
+	int bbIdx = _d3dDesc.SwapChain->GetCurrentBackBufferIndex ();
 
-	auto rtvH = _rtvHeaps->GetCPUDescriptorHandleForHeapStart ();
-	rtvH.ptr += bbIdx * _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	/*
-		OMSetRenderTargets (UINT							   numRTVDescriptors, 
-							const D3D12_CPU_DESCRIPTOR_HANDLE* pRTVHandles,
-							BOOL							   RTsSingleHandleToDescriptorRange,
-							const D3D12_CPU_DESCRIPTOR_HANDLE* pDepthStencilDescriptor);
-		numRTVDescriptors				 : Count of RTVs
-		pRTVHandles						 : rtv handles head address.
-		RTsSingleHandleToDescriptorRange : 
-		pDepthStencilDescriptor			 : Stencil Descriptor
-	*/
-	_cmdList->OMSetRenderTargets (1, &rtvH, false, nullptr);
+	// step 7.2 : Set current back buffer handle
+
+	auto rtvH = _d3dDesc.RTVHeap->GetCPUDescriptorHandleForHeapStart ();
+	rtvH.ptr += bbIdx * _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	// step 7.3 : Set barrier (resource : render target)
+
+	_d3dDesc.BarrierDesc.Transition.pResource = _d3dDesc.BackBuffers[bbIdx];
+	_d3dDesc.BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	_d3dDesc.BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	_d3dDesc.CMDList->ResourceBarrier (1, &_d3dDesc.BarrierDesc);
+
+	// step 7.4 : Create "SetRenderTarget" command
+
+	_d3dDesc.CMDList->OMSetRenderTargets (1, &rtvH, false, nullptr);
+
+	// step 7.5 : Create "ClearRenderTargetView" command
 
 	static float duration = 1.0f;
 	static float time = 0.0f;
@@ -98,83 +54,71 @@ bool Display (float deltaTime) {
 	}
 
 	float clearColor[] = {r, g, b, 1.0f};
-	_cmdList->ClearRenderTargetView (rtvH, clearColor, 0, nullptr);
+	_d3dDesc.CMDList->ClearRenderTargetView (rtvH, clearColor, 0, nullptr);
 
-	_barrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	_barrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-	_cmdList->ResourceBarrier (1, &_barrierDesc);
+	// step 7.6 : Set barrier (render target -> present)
 
-	_cmdList->Close ();
+	_d3dDesc.BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	_d3dDesc.BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+	_d3dDesc.CMDList->ResourceBarrier (1, &_d3dDesc.BarrierDesc);
 
-	ID3D12CommandList* cmdLists[] = {_cmdList};
-	_cmdQueue->ExecuteCommandLists (1, cmdLists);
+	// step 7.7 : Create "Close" command
 
-	_cmdQueue->Signal (_fence, ++_fenceVal);
+	_d3dDesc.CMDList->Close ();
+
+	// step 7.8 : Execute commands
+
+	ID3D12CommandList* cmdLists[] = {_d3dDesc.CMDList};
+	_d3dDesc.CMDQueue->ExecuteCommandLists (1, cmdLists);
+
+	// step 8 : Wait for all commands to complete
+
+	_d3dDesc.CMDQueue->Signal (_d3dDesc.Fence, ++_d3dDesc.FenceVal);
 	// when gpu completed and return same value, break.
 	// while (_fence->GetCompletedValue () != _fenceVal) {}
-	if (_fence->GetCompletedValue () != _fenceVal) {
+	if (_d3dDesc.Fence->GetCompletedValue () != _d3dDesc.FenceVal) {
 		auto event = CreateEvent (nullptr, false, false, nullptr);
-		_fence->SetEventOnCompletion (_fenceVal, event);
+		_d3dDesc.Fence->SetEventOnCompletion (_d3dDesc.FenceVal, event);
 		// wait for event
 		WaitForSingleObject (event, INFINITE);
 		CloseHandle (event);
 	}
 
-	_cmdAllocator->Reset ();
-	_cmdList->Reset (_cmdAllocator, nullptr);
+	//
+	// step 9 : Reset & Present
+	//
 
-	UINT presentFlags = _tearingSupport ? DXGI_PRESENT_ALLOW_TEARING : 0;
-	_swapChain->Present (0, presentFlags);
+	_d3dDesc.CMDAllocator->Reset ();
+	_d3dDesc.CMDList->Reset (_d3dDesc.CMDAllocator, nullptr);
+
+	_d3dDesc.SwapChain->Present (1, 0);
 
 	return true;
 }
 
-LRESULT CALLBACK D3D::WndProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	switch (msg) {
-		case WM_DESTROY:
-			PostQuitMessage (0);
-			break;
-		case WM_KEYDOWN:
-			if (wParam == VK_ESCAPE)
-				DestroyWindow (hwnd);
+void EnableDebugLayer () {
+	ID3D12Debug* debugLayer = 0;
+	if (SUCCEEDED (D3D12GetDebugInterface (IID_PPV_ARGS (&debugLayer)))) {
+		debugLayer->EnableDebugLayer ();
+		debugLayer->Release ();
 	}
-
-	return DefWindowProc (hwnd, msg, wParam, lParam);
 }
 
-//
-// window size
-//
-const unsigned int window_width = 1280;
-const unsigned int window_height = 720;
-
-#ifdef _DEBUG
 int main () {
-	printf_s ("Debug Mode\n");
 	EnableDebugLayer ();
-#else
-int WINMAIN (HINSTANCE, HINSTANCE, LPSTR, int) {
-#endif
 
 	srand ((unsigned)time (NULL));
 
-	CheckTearingSupport ();
-	if (_tearingSupport) {
-		printf ("Tearing Support\n");
-	} else {
-		printf ("Tearing Not Support\n");
-	}
-
-	if (!D3D::InitD3D (GetModuleHandle (nullptr), window_width, window_height)) {
+	if (!InitD3D (GetModuleHandle (nullptr), window_width, window_height, &_d3dDesc)) {
 		printf_s ("ERROR : InitD3D() - FAILED\n");
 		return -1;
 	}
 
 	D3D::EnterMsgLoop (Display);
 
-	UnregisterClass (_w.lpszClassName, _w.hInstance);
+	UnregisterClass (_d3dDesc.WNDClass.lpszClassName, _d3dDesc.WNDClass.hInstance);
 
-	printf_s ("Run End\n");
+	printf_s ("Application end.");
 
 	return 0;
 }
