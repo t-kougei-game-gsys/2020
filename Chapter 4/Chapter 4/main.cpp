@@ -136,6 +136,7 @@ LRESULT CALLBACK D3D::WndProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 		2.2 buffer作成
 	3. 頂点データをバッファーにマップする (DX 9のLock)
 	4. 頂点バッファービューの作成
+	5. Indexの作成 (必須ではない)
 */
 bool GenerateTriangle () {
 	HRESULT hr = 0;
@@ -228,9 +229,9 @@ bool GenerateTriangle () {
 	//
 
 	XMFLOAT3 vertices2[] = {
-		{-0.5f, -0.7f, 0.0f}, // index : 0
-		{ 0.0f,  0.7f, 0.0f}, // index : 1
-		{ 0.5f, -0.7f, 0.0f}  // index : 2
+		{-0.5f, -0.7f, 0.0f},
+		{ 0.0f,  0.7f, 0.0f},
+		{ 0.5f, -0.7f, 0.0f}
 	};
 
 	resDesc.Width = sizeof (vertices2);
@@ -394,7 +395,7 @@ bool GenerateTriangle () {
 	1. 始めに
 		1.1 import d3dcompiler.h
 		1.2 link d3dcompiler.lib
-	2. ID3DBlobの作成
+	2. Shaderの作成
 		2.0 errorのID3DBlobの作成
 		2.1 Vertex Shader
 		2.2 Pixel Shader
@@ -412,7 +413,7 @@ bool GPUSetting () {
 	HRESULT hr = 0;
 
 	//
-	// 2. ID3DBlobの作成
+	// 2. Shaderの作成
 	//
 
 	// 2.0 errorのID3DBlobの作成
