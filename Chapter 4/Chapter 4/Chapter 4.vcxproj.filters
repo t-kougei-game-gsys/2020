@@ -26,6 +26,9 @@
     <ClInclude Include="D3DUtility.h">
       <Filter>標頭檔</Filter>
     </ClInclude>
+    <ClInclude Include="D3D_DESC.h">
+      <Filter>標頭檔</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="BasicVertexShader.hlsl">
