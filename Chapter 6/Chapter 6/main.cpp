@@ -64,8 +64,8 @@ bool Display (float deltaTime) {
 	// 7. Draw§Œ‘O∂®
 	//
 
-	auto heapHandle = _basicDescHeap->GetGPUDescriptorHandleForHeapStart ();
-	heapHandle.ptr += _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//auto heapHandle = _basicDescHeap->GetGPUDescriptorHandleForHeapStart ();
+	//heapHandle.ptr += _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	_d3dDesc.CMDList->SetGraphicsRootDescriptorTable (0, _basicDescHeap->GetGPUDescriptorHandleForHeapStart ());
 
 	_d3dDesc.CMDList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -490,14 +490,14 @@ bool GPUSetting () {
 
 	descRange[0].NumDescriptors = 1;
 	descRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	descRange[0].BaseShaderRegister = 0;							// 0 slot
+	descRange[0].BaseShaderRegister = 1;							// 0 slot
 	descRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	// Constant Buffer”√•Ï•∏•π•ø©`[1]
 
 	descRange[1].NumDescriptors = 1;								// only one descriptor
 	descRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;		// constant buffer view
-	descRange[1].BaseShaderRegister = 0;							// 0 slot
+	descRange[1].BaseShaderRegister = 1;							// 0 slot
 	descRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	// •Ï•∏•π•ø©`∑¨∫≈§Œ÷ÿ—}§‚ÜñÓ}§ §§
@@ -587,6 +587,7 @@ bool GPUSetting () {
 	pipelineDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
 	pipelineDesc.RasterizerState.MultisampleEnable = false;
 	pipelineDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	//pipelineDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
 	pipelineDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	//pipelineDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	pipelineDesc.RasterizerState.DepthClipEnable = true;

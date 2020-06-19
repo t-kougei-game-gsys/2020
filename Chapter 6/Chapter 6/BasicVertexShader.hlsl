@@ -4,7 +4,7 @@
 // 6. Shader¤ËBuffer¤ÎêÓÃ
 //
 
-cbuffer cbuff0 : register(b0) {
+cbuffer cbuff0 : register(b1) {
 	matrix mat;
 };
 
