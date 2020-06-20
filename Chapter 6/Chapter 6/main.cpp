@@ -500,9 +500,6 @@ bool GPUSetting () {
 	descRange[1].BaseShaderRegister = 1;							// 0 slot
 	descRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	// レジスター番号の重複も問題ない
-	// 種別が違う場合、レジスターは別の場所にある
-
 	// 5.2 ROOT_PARAMETERの設定
 
 	// 一緒に使う
