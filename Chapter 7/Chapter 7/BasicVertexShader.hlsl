@@ -1,6 +1,6 @@
 #include "BasicShaderHeader.hlsli"
 
-cbuffer cbuff0 : register(b0) {
+cbuffer cbuff0 : register (b0) {
 	matrix world;
 	matrix viewproj;
 };

@@ -31,12 +31,15 @@ ID3D12DescriptorHeap* _basicDescHeap = nullptr;
 ID3D12DescriptorHeap* _dsvHeap = nullptr;
 
 MatricesData* _matrixData;
+float* _lightAngle;
 
 XMMATRIX _viewMat;
 XMMATRIX _projMat;
 
 unsigned int _vertNum = 0;
 unsigned int _idxNum = 0;
+
+const float PI = 3.14159265f;
 
 float WindowRatio () {
 	return (float)window_width / (float)window_height;
@@ -63,11 +66,14 @@ bool Display (float deltaTime) {
 	auto rtvH = _d3dDesc.RTVHeap->GetCPUDescriptorHandleForHeapStart ();
 	rtvH.ptr += bbIdx * _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-	static float angle = 0.0f;
-	angle += 1.0f * deltaTime;
-	auto worldMat = XMMatrixRotationY (angle);
-	_matrixData->world = worldMat;
-	_matrixData->viewproj = _viewMat * _projMat;
+	float speed = 1.0f;
+	*_lightAngle += speed * PI / 180.0f;
+
+	//static float angle = 0.0f;
+	//angle += 1.0f * deltaTime;
+	//auto worldMat = XMMatrixRotationY (angle);
+	//_matrixData->world = worldMat;
+	//_matrixData->viewproj = _viewMat * _projMat;
 
 	_d3dDesc.BarrierDesc.Transition.pResource = _d3dDesc.BackBuffers[bbIdx];
 	_d3dDesc.BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
@@ -90,7 +96,7 @@ bool Display (float deltaTime) {
 
 	//_d3dDesc.CMDList->OMSetRenderTargets (1, &rtvH, false, nullptr);
 
-	_d3dDesc.CMDList->ClearRenderTargetView (rtvH, BLACK, 0, nullptr);
+	_d3dDesc.CMDList->ClearRenderTargetView (rtvH, WHITE, 0, nullptr);
 
 	_d3dDesc.CMDList->SetPipelineState (_pipelineState);
 	_d3dDesc.CMDList->SetGraphicsRootSignature (_rootSignature);
@@ -98,7 +104,8 @@ bool Display (float deltaTime) {
 	_d3dDesc.CMDList->RSSetScissorRects (1, &_scissorRect);
 
 	_d3dDesc.CMDList->SetDescriptorHeaps (1, &_basicDescHeap);
-	_d3dDesc.CMDList->SetGraphicsRootDescriptorTable (0, _basicDescHeap->GetGPUDescriptorHandleForHeapStart ());
+	auto handle = _basicDescHeap->GetGPUDescriptorHandleForHeapStart ();
+	_d3dDesc.CMDList->SetGraphicsRootDescriptorTable (0,  handle);
 
 	//_d3dDesc.CMDList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 	_d3dDesc.CMDList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -293,12 +300,12 @@ bool CreateDepthBuffer () {
 	return true;
 }
 
-bool Transformation () {
+bool CreateShaderData () {
 	// Create Matrix
 
 	XMMATRIX worldMat = XMMatrixIdentity ();
 
-	XMFLOAT3 eye (0, 10, -15);
+	XMFLOAT3 eye (0, 20, -25);
 	XMFLOAT3 target (0, 10, 0);
 	XMFLOAT3 up (0, 1, 0);
 
@@ -329,7 +336,6 @@ bool Transformation () {
 
 	// Map
 
-	
 	cbvBuffer->Map (0, nullptr, (void**)&_matrixData);
 	_matrixData->world = worldMat;
 	_matrixData->viewproj = _viewMat * _projMat;
@@ -340,7 +346,7 @@ bool Transformation () {
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
 	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	descHeapDesc.NodeMask = 0;
-	descHeapDesc.NumDescriptors = 1;		// only cbv (matrix data)
+	descHeapDesc.NumDescriptors = 2;
 	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
 	_d3dDesc.Device->CreateDescriptorHeap (&descHeapDesc, IID_PPV_ARGS (&_basicDescHeap));
@@ -349,7 +355,32 @@ bool Transformation () {
 	cbvDesc.BufferLocation = cbvBuffer->GetGPUVirtualAddress ();
 	cbvDesc.SizeInBytes = cbvBuffer->GetDesc ().Width;
 
-	_d3dDesc.Device->CreateConstantBufferView (&cbvDesc, _basicDescHeap->GetCPUDescriptorHandleForHeapStart ());
+	auto handle = _basicDescHeap->GetCPUDescriptorHandleForHeapStart ();
+
+	_d3dDesc.Device->CreateConstantBufferView (&cbvDesc, handle);
+
+	// float
+
+	ID3D12Resource* constBuff = nullptr;
+	_d3dDesc.Device->CreateCommittedResource (
+		&CD3DX12_HEAP_PROPERTIES (D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer (Get256Times (sizeof (float))),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS (&constBuff)
+	);
+
+	constBuff->Map (0, nullptr, (void**)&_lightAngle);
+	*_lightAngle = 5.0f;
+	constBuff->Unmap (0, nullptr);
+
+	cbvDesc.BufferLocation = constBuff->GetGPUVirtualAddress ();
+	cbvDesc.SizeInBytes = constBuff->GetDesc ().Width;
+
+	handle.ptr += _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	_d3dDesc.Device->CreateConstantBufferView (&cbvDesc, handle);
 
 	return true;
 }
@@ -425,19 +456,31 @@ bool GPUSetting () {
 
 	// DESCRIPTOR RANGE
 
-	D3D12_DESCRIPTOR_RANGE descRange = {};
+	D3D12_DESCRIPTOR_RANGE descRange[2] = {};
 
-	descRange.NumDescriptors = 1;
-	descRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	descRange.BaseShaderRegister = 0;
-	descRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	descRange[0].NumDescriptors = 1;
+	descRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descRange[0].BaseShaderRegister = 0;
+	descRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	descRange[1].NumDescriptors = 1;
+	descRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descRange[1].BaseShaderRegister = 1;
+	descRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//D3D12_DESCRIPTOR_RANGE descRange = {};
+
+	//descRange.NumDescriptors = 1;
+	//descRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	//descRange.BaseShaderRegister = 0;
+	//descRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	// ROOT_PARAMETER 
 
 	D3D12_ROOT_PARAMETER rootParam = {};
 	rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam.DescriptorTable.pDescriptorRanges = &descRange;
-	rootParam.DescriptorTable.NumDescriptorRanges = 1;
+	rootParam.DescriptorTable.pDescriptorRanges = descRange;
+	rootParam.DescriptorTable.NumDescriptorRanges = 2;
 	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	rootSignatureDesc.pParameters = &rootParam;
@@ -556,7 +599,7 @@ bool Setup () {
 		return false;
 	}
 
-	if (!Transformation ()) {
+	if (!CreateShaderData ()) {
 		printf_s ("ERROR : Transformation() - FAILED\n");
 		return false;
 	}
