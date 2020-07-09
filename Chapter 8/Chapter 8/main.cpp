@@ -18,7 +18,7 @@ const unsigned int window_width = 1280;
 const unsigned int window_height = 720;
 
 const string _mikuPath = "Model/場秞立弁.pmd";
-const string _rukaPath = "Model/挐秞伙市.pmd";
+const string _lukaPath = "Model/挐秞伙市.pmd";
 const string _renPath = "Model/蔉秞伊件.pmd";
 const string _rinPath = "Model/蔉秞伉件.pmd";
 
