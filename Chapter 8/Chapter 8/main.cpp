@@ -16,6 +16,12 @@ using namespace DirectX;
 const unsigned int window_width = 1280;
 const unsigned int window_height = 720;
 
+const string _mikuPath = "Model/初音ミク.pmd";
+const string _rukaPath = "Model/巡音ルカ.pmd";
+const string _renPath = "Model/鏡音レン.pmd";
+const string _rinPath = "Model/鏡音リン.pmd";
+
+
 //
 // Shader Material Data
 //
@@ -67,6 +73,133 @@ MatricesData* _matrixData;
 
 
 
+
+ID3D12Resource* CreateGrayGradationTexture () {
+	D3D12_RESOURCE_DESC resDesc = {};
+	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	resDesc.Width = 4;//幅
+	resDesc.Height = 256;//高さ
+	resDesc.DepthOrArraySize = 1;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0;//
+	resDesc.MipLevels = 1;//
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
+	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+
+	D3D12_HEAP_PROPERTIES texHeapProp = {};
+	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
+	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
+	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
+	texHeapProp.CreationNodeMask = 0;//単一アダプタのため0
+	texHeapProp.VisibleNodeMask = 0;//単一アダプタのため0
+
+	ID3D12Resource* gradBuff = nullptr;
+	auto result = _d3dDesc.Device->CreateCommittedResource (
+		&texHeapProp,
+		D3D12_HEAP_FLAG_NONE,//特に指定なし
+		&resDesc,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		nullptr,
+		IID_PPV_ARGS (&gradBuff)
+	);
+	if (FAILED (result)) {
+		return nullptr;
+	}
+
+	//上が白くて下が黒いテクスチャデータを作成
+	std::vector<unsigned int> data (4 * 256);
+	auto it = data.begin ();
+	unsigned int c = 0xff;
+	for (; it != data.end (); it += 4) {
+		auto col = (0xff << 24) | RGB (c, c, c);//RGBAが逆並びしているためRGBマクロと0xff<<24を用いて表す。
+		//auto col = (0xff << 24) | (c<<16)|(c<<8)|c;//これでもOK
+		std::fill (it, it + 4, col);
+		--c;
+	}
+
+	result = gradBuff->WriteToSubresource (0, nullptr, data.data (), 4 * sizeof (unsigned int), sizeof (unsigned int) * data.size ());
+	return gradBuff;
+}
+
+ID3D12Resource* CreateWhiteTexture () {
+	D3D12_HEAP_PROPERTIES texHeapProp = {};
+	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
+	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
+	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
+	texHeapProp.CreationNodeMask = 0;//単一アダプタのため0
+	texHeapProp.VisibleNodeMask = 0;//単一アダプタのため0
+
+	D3D12_RESOURCE_DESC resDesc = {};
+	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	resDesc.Width = 4;//幅
+	resDesc.Height = 4;//高さ
+	resDesc.DepthOrArraySize = 1;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0;//
+	resDesc.MipLevels = 1;//
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
+	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+
+	ID3D12Resource* whiteBuff = nullptr;
+	auto result = _d3dDesc.Device->CreateCommittedResource (
+		&texHeapProp,
+		D3D12_HEAP_FLAG_NONE,//特に指定なし
+		&resDesc,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		nullptr,
+		IID_PPV_ARGS (&whiteBuff)
+	);
+	if (FAILED (result)) {
+		return nullptr;
+	}
+	std::vector<unsigned char> data (4 * 4 * 4);
+	std::fill (data.begin (), data.end (), 0xff);
+
+	result = whiteBuff->WriteToSubresource (0, nullptr, data.data (), 4 * 4, data.size ());
+	return whiteBuff;
+}
+
+ID3D12Resource* CreateBlackTexture () {
+	D3D12_HEAP_PROPERTIES texHeapProp = {};
+	texHeapProp.Type = D3D12_HEAP_TYPE_CUSTOM;//特殊な設定なのでdefaultでもuploadでもなく
+	texHeapProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;//ライトバックで
+	texHeapProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;//転送がL0つまりCPU側から直で
+	texHeapProp.CreationNodeMask = 0;//単一アダプタのため0
+	texHeapProp.VisibleNodeMask = 0;//単一アダプタのため0
+
+	D3D12_RESOURCE_DESC resDesc = {};
+	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	resDesc.Width = 4;//幅
+	resDesc.Height = 4;//高さ
+	resDesc.DepthOrArraySize = 1;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0;//
+	resDesc.MipLevels = 1;//
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;//レイアウトについては決定しない
+	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;//とくにフラグなし
+
+	ID3D12Resource* blackBuff = nullptr;
+	auto result = _d3dDesc.Device->CreateCommittedResource (
+		&texHeapProp,
+		D3D12_HEAP_FLAG_NONE,//特に指定なし
+		&resDesc,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		nullptr,
+		IID_PPV_ARGS (&blackBuff)
+	);
+	if (FAILED (result)) {
+		return nullptr;
+	}
+	std::vector<unsigned char> data (4 * 4 * 4);
+	std::fill (data.begin (), data.end (), 0x00);
+
+	result = blackBuff->WriteToSubresource (0, nullptr, data.data (), 4 * 4, data.size ());
+	return blackBuff;
+}
+
 string GetTexturePathFromModelAndTexPath (const string& modelPath, char* texPath) {
 	int pathIndex1 = modelPath.rfind ('/');
 	int pathIndex2 = modelPath.rfind ('\\');
@@ -115,6 +248,10 @@ bool Display (float deltaTime) {
 
 	auto rtvH = _d3dDesc.RTVHeap->GetCPUDescriptorHandleForHeapStart ();
 	rtvH.ptr += bbIdx * _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	static float angle = 0.0f;
+	angle += 1.0f * deltaTime;
+	_matrixData->world = XMMatrixRotationY (angle);
 
 	_d3dDesc.BarrierDesc.Transition.pResource = _d3dDesc.BackBuffers[bbIdx];
 	_d3dDesc.BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
@@ -230,13 +367,17 @@ ID3D12Resource* LoadTextureFromFile (string& texPath) {
 
 	// cout << "Texture Path: " << GetWideStringFromString (texPath).c_str () << endl;
 
-	LoadFromWICFile (
+	auto hr = LoadFromWICFile (
 		GetWideStringFromString (texPath).c_str (),
 		// L"Model/Miku.pmd",
 		WIC_FLAGS_NONE,
 		&metadata,
 		scratchImg
 	);
+
+	if (FAILED (hr)) {
+		return nullptr;
+	}
 
 	auto img = scratchImg.GetImage (0, 0, 0);
 
@@ -260,7 +401,7 @@ ID3D12Resource* LoadTextureFromFile (string& texPath) {
 	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
 	ID3D12Resource* texBuff = nullptr;
-	_d3dDesc.Device->CreateCommittedResource (
+	hr = _d3dDesc.Device->CreateCommittedResource (
 		&texHeapProp,
 		D3D12_HEAP_FLAG_NONE,
 		&resDesc,
@@ -269,13 +410,23 @@ ID3D12Resource* LoadTextureFromFile (string& texPath) {
 		IID_PPV_ARGS (&texBuff)
 	);
 
-	texBuff->WriteToSubresource (
+	if (FAILED (hr)) {
+		return nullptr;
+	}
+
+
+	hr = texBuff->WriteToSubresource (
 		0,
 		nullptr,
 		img->pixels,
 		img->rowPitch,
 		img->slicePitch
 	);
+
+	if (FAILED (hr)) {
+		return nullptr;
+	}
+
 
 	return texBuff;
 }	
@@ -284,8 +435,8 @@ bool ReadPMD () {
 	PMDHeader pmdHeader = {};
 
 	char signature[3] = {};
-	string strModelPath = "Model/Miku.pmd";
-	auto fp = fopen (strModelPath.c_str (), "rb");
+	string path = _mikuPath;
+	auto fp = fopen (path.c_str (), "rb");
 	
 	// cout << "String Model Path: " << strModelPath.c_str () << endl;
 
@@ -432,10 +583,10 @@ bool ReadPMD () {
 			continue;
 		}
 
-		auto texFilePath = GetTexturePathFromModelAndTexPath (strModelPath, pmdMaterials[i].texFilePath);
-		// printf_s ("Texture File Path:%s\n", strModelPath);
+		auto texFilePath = GetTexturePathFromModelAndTexPath (path, pmdMaterials[i].texFilePath);
 		// cout << "Texture File Path: " << texFilePath << endl;
 		_textureResources[i] = LoadTextureFromFile (texFilePath);
+		// printf_s ("Texture Resrouces[%i] : %s\n", i, _textureResources[i] != nullptr ? "True" : "False");
 	}
 
 
@@ -458,29 +609,29 @@ bool ReadPMD () {
 	matCBVDesc.BufferLocation = materialBuff->GetGPUVirtualAddress ();
 	matCBVDesc.SizeInBytes = materialBuffSize;
 
+	auto whiteTex = CreateWhiteTexture ();
+
 	auto matDescHeapH = _materialDescHeap->GetCPUDescriptorHandleForHeapStart ();
 	auto inc = _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	for (int i = 0; i < materialNum; ++i) {
+		// material view
 		_d3dDesc.Device->CreateConstantBufferView (&matCBVDesc, matDescHeapH);
 
 		matDescHeapH.ptr += inc;
 		matCBVDesc.BufferLocation += materialBuffSize;
 
-		if (_textureResources[i] != nullptr) {
+		// shader resource view (Texture)
+		if (_textureResources[i] == nullptr) {
+			srvDesc.Format = whiteTex->GetDesc().Format;
+			_d3dDesc.Device->CreateShaderResourceView (whiteTex, &srvDesc, matDescHeapH);
+		} else {
+			// printf_s ("Index : %i\n", i);
 			srvDesc.Format = _textureResources[i]->GetDesc().Format;
+			_d3dDesc.Device->CreateShaderResourceView (_textureResources[i], &srvDesc, matDescHeapH);
 		}
-
-		_d3dDesc.Device->CreateShaderResourceView (
-			_textureResources[i],
-			&srvDesc,
-			matDescHeapH
-		);
 
 		matDescHeapH.ptr += inc;
 	}
-
-
-
 
 	return true;
 }
@@ -532,7 +683,7 @@ void CreateDepthBuffer () {
 void SetCamera () {
 	XMMATRIX worldMat = XMMatrixIdentity ();
 	
-	XMFLOAT3 eye (0, 20, -25);
+	XMFLOAT3 eye (0, 10, -30);
 	XMFLOAT3 target (0, 10, 0);
 	XMFLOAT3 up (0, 1, 0);
 
@@ -543,7 +694,7 @@ void SetCamera () {
 	);
 
 	XMMATRIX projMat = XMMatrixPerspectiveFovLH (
-		XM_PIDIV2,		// fov
+		XM_PIDIV4,		// fov
 		WindowRatio (),
 		1.0f,
 		100.0f
@@ -618,7 +769,7 @@ bool GPUSetting () {
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 		},
 		{
-			"NORMAL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
+			"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
 			D3D12_APPEND_ALIGNED_ELEMENT,
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
 		},
@@ -652,16 +803,20 @@ bool GPUSetting () {
 	// DESCRIPTOR_RANGE
 
 	D3D12_DESCRIPTOR_RANGE descRange[3] = {};
+
+	// scene data (Matrix...)
 	descRange[0].NumDescriptors = 1;
 	descRange[0].BaseShaderRegister = 0;
 	descRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	descRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	
+	// materials
 	descRange[1].NumDescriptors = 1;		// いくつかがあるが、一度に使うのは一つ
 	descRange[1].BaseShaderRegister = 1;
 	descRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	descRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	// textures
 	descRange[2].NumDescriptors = 1;
 	descRange[2].BaseShaderRegister = 0;
 	descRange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
