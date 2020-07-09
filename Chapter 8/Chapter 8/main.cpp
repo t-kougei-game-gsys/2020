@@ -6,6 +6,7 @@
 #include <d3dx12.h>
 #include <vector>
 #include <DirectXTex.h>
+#include <algorithm>
 
 #pragma comment (lib, "d3dcompiler.lib")
 #pragma comment (lib, "DirectXTex.lib")
@@ -73,6 +74,19 @@ MatricesData* _matrixData;
 
 
 
+
+string GetExtension (const string& path) {
+	int idx = path.rfind ('.');
+	return path.substr (idx + 1, path.length() - idx - 1);
+}
+
+pair<string, string> SplitFileName (const string& path, const char splitter = '*') {
+	int idx = path.find (splitter);
+	pair<string, string> ret;
+	ret.first = path.substr (0, idx);
+	ret.second = path.substr (idx + 1 , path.length () - idx - 1);
+	return ret;
+}
 
 ID3D12Resource* CreateGrayGradationTexture () {
 	D3D12_RESOURCE_DESC resDesc = {};
@@ -200,7 +214,7 @@ ID3D12Resource* CreateBlackTexture () {
 	return blackBuff;
 }
 
-string GetTexturePathFromModelAndTexPath (const string& modelPath, char* texPath) {
+string GetTexturePathFromModelAndTexPath (const string& modelPath, const char* texPath) {
 	int pathIndex1 = modelPath.rfind ('/');
 	int pathIndex2 = modelPath.rfind ('\\');
 	auto pathIndex = max (pathIndex1, pathIndex2);
@@ -435,7 +449,7 @@ bool ReadPMD () {
 	PMDHeader pmdHeader = {};
 
 	char signature[3] = {};
-	string path = _mikuPath;
+	string path = _rukaPath;
 	auto fp = fopen (path.c_str (), "rb");
 	
 	// cout << "String Model Path: " << strModelPath.c_str () << endl;
@@ -576,14 +590,19 @@ bool ReadPMD () {
 
 
 	// texture
+	
 	_textureResources = vector<ID3D12Resource*> (materialNum);
 	for (int i = 0; i < pmdMaterials.size (); i++) {
-		if (strlen (pmdMaterials[i].texFilePath) == 0) {
-			_textureResources[i] = nullptr;
-			continue;
+		string texFileName = pmdMaterials[i].texFilePath;
+		auto namepair = SplitFileName (texFileName);
+		if (GetExtension (namepair.first) == "sph" || GetExtension (namepair.first) == "spa") {
+			texFileName = namepair.second;
+		} else {
+			texFileName = namepair.first;
 		}
 
-		auto texFilePath = GetTexturePathFromModelAndTexPath (path, pmdMaterials[i].texFilePath);
+		//auto texFilePath = GetTexturePathFromModelAndTexPath (path, pmdMaterials[i].texFilePath);
+		auto texFilePath = GetTexturePathFromModelAndTexPath (path, texFileName.c_str ());
 		// cout << "Texture File Path: " << texFilePath << endl;
 		_textureResources[i] = LoadTextureFromFile (texFilePath);
 		// printf_s ("Texture Resrouces[%i] : %s\n", i, _textureResources[i] != nullptr ? "True" : "False");
