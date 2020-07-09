@@ -7,6 +7,7 @@
 #include <vector>
 #include <DirectXTex.h>
 #include <algorithm>
+#include <map>
 
 #pragma comment (lib, "d3dcompiler.lib")
 #pragma comment (lib, "DirectXTex.lib")
@@ -18,10 +19,14 @@ const unsigned int window_width = 1280;
 const unsigned int window_height = 720;
 
 const string _mikuPath = "Model/場秞立弁.pmd";
+const string _mikuMetalPath = "Model/場秞立弁.pmd";
 const string _lukaPath = "Model/挐秞伙市.pmd";
 const string _renPath = "Model/蔉秞伊件.pmd";
 const string _rinPath = "Model/蔉秞伉件.pmd";
 
+using LoadLambda_t = function<HRESULT(const wstring& path, TexMetadata*, ScratchImage&)>;
+map<string, LoadLambda_t> _loadLambdaTable;
+map<string, ID3D12Resource*> _resourceTable;
 
 //
 // Shader Material Data
@@ -56,6 +61,9 @@ ID3D12DescriptorHeap* _materialDescHeap = nullptr;
 
 vector<Material> _materials = {};
 vector<ID3D12Resource*> _textureResources = {};
+vector<ID3D12Resource*> _sphResources = {};
+vector<ID3D12Resource*> _spaResources = {};
+vector<ID3D12Resource*> _toonResources = {};
 
 D3D_DESC _d3dDesc = {};
 
@@ -65,12 +73,14 @@ D3D12_INDEX_BUFFER_VIEW _ibView = {};
 unsigned int _vertNum = 0;
 unsigned int _idxNum = 0;
 
-struct MatricesData {
+struct SceneData {
 	XMMATRIX world;
-	XMMATRIX viewproj;
+	XMMATRIX view;
+	XMMATRIX proj;
+	XMFLOAT3 eye;
 };
 
-MatricesData* _matrixData;
+SceneData* _matrixData;
 
 
 
@@ -294,7 +304,7 @@ bool Display (float deltaTime) {
 
 	_d3dDesc.CMDList->SetDescriptorHeaps (1, &_materialDescHeap);
 	auto materialH = _materialDescHeap->GetGPUDescriptorHandleForHeapStart ();
-	auto cbvsrvIncSize = _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 2;
+	auto cbvsrvIncSize = _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 5;
 	unsigned int idxOffset = 0;
 	for (auto& m : _materials) {
 		_d3dDesc.CMDList->SetGraphicsRootDescriptorTable (1, materialH);	// set in ROOT_PARAMETER[1]
@@ -376,18 +386,29 @@ struct PMDMaterial {
 #pragma pack()
 
 ID3D12Resource* LoadTextureFromFile (string& texPath) {
+	auto it = _resourceTable.find (texPath);
+	if (it != _resourceTable.end ()) {
+		return _resourceTable[texPath];
+	}
+
 	TexMetadata metadata = {};
 	ScratchImage scratchImg = {};
 
+	auto wtexpath = GetWideStringFromString (texPath);
+	auto ext = GetExtension (texPath);
+	auto hr = _loadLambdaTable[ext] (wtexpath,
+										&metadata,
+										scratchImg);
+
 	// cout << "Texture Path: " << GetWideStringFromString (texPath).c_str () << endl;
 
-	auto hr = LoadFromWICFile (
-		GetWideStringFromString (texPath).c_str (),
-		// L"Model/Miku.pmd",
-		WIC_FLAGS_NONE,
-		&metadata,
-		scratchImg
-	);
+	//auto hr = LoadFromWICFile (
+	//	GetWideStringFromString (texPath).c_str (),
+	//	// L"Model/Miku.pmd",
+	//	WIC_FLAGS_NONE,
+	//	&metadata,
+	//	scratchImg
+	//);
 
 	if (FAILED (hr)) {
 		return nullptr;
@@ -441,7 +462,7 @@ ID3D12Resource* LoadTextureFromFile (string& texPath) {
 		return nullptr;
 	}
 
-
+	_resourceTable[texPath] = texBuff;
 	return texBuff;
 }	
 
@@ -449,7 +470,7 @@ bool ReadPMD () {
 	PMDHeader pmdHeader = {};
 
 	char signature[3] = {};
-	string path = _rukaPath;
+	string path = _mikuPath;
 	auto fp = fopen (path.c_str (), "rb");
 	
 	// cout << "String Model Path: " << strModelPath.c_str () << endl;
@@ -565,6 +586,7 @@ bool ReadPMD () {
 		_materials[i].material.specular = pmdMaterials[i].specular;
 		_materials[i].material.specularity = pmdMaterials[i].specularity;
 		_materials[i].material.ambient = pmdMaterials[i].ambient;
+		_materials[i].additional.toonIdx = pmdMaterials[i].toonIdx;
 	}
 
 	// create buffer
@@ -589,23 +611,77 @@ bool ReadPMD () {
 
 
 
-	// texture
-	
+	// texture & spa & sph
 	_textureResources = vector<ID3D12Resource*> (materialNum);
+	_sphResources = vector<ID3D12Resource*> (materialNum);
+	_spaResources = vector<ID3D12Resource*> (materialNum);
+	_toonResources = vector<ID3D12Resource*> (materialNum);
 	for (int i = 0; i < pmdMaterials.size (); i++) {
+		// toon
+		string toonFilePath = "toon/";
+		char toonFileName[16];
+
+		sprintf(toonFileName, "toon%02d.bmp", pmdMaterials[i].toonIdx + 1);
+
+		toonFilePath += toonFileName;
+
+		_toonResources[i] = LoadTextureFromFile (toonFilePath);
+
+		if (strlen (pmdMaterials[i].texFilePath) == 0) {
+			_textureResources[i] = nullptr;
+			continue;
+		}
+
 		string texFileName = pmdMaterials[i].texFilePath;
-		auto namepair = SplitFileName (texFileName);
-		if (GetExtension (namepair.first) == "sph" || GetExtension (namepair.first) == "spa") {
-			texFileName = namepair.second;
+		string sphFileName = "";
+		string spaFileName = "";
+		
+		if (count (texFileName.begin (), texFileName.end (), '*') > 0) {
+			auto namepair = SplitFileName (texFileName);
+			if (GetExtension (namepair.first) == "sph") {
+				texFileName = namepair.second;
+				sphFileName = namepair.first;
+			} else if (GetExtension (namepair.first) == "spa") {
+				texFileName = namepair.second;
+				spaFileName = namepair.first;
+			} else {
+				texFileName = namepair.first;
+				if (GetExtension (namepair.second) == "sph") {
+					sphFileName = namepair.second;
+				} else if (GetExtension (namepair.second) == "spa") {
+					spaFileName = namepair.second;
+				}
+			}
 		} else {
-			texFileName = namepair.first;
+			if (GetExtension (pmdMaterials[i].texFilePath) == "sph") {
+				sphFileName = pmdMaterials[i].texFilePath;
+				texFileName = "";
+			} else if (GetExtension (pmdMaterials[i].texFilePath) == "spa") {
+				spaFileName = pmdMaterials[i].texFilePath;
+				texFileName = "";
+			} else {
+				texFileName = pmdMaterials[i].texFilePath;
+			}
 		}
 
 		//auto texFilePath = GetTexturePathFromModelAndTexPath (path, pmdMaterials[i].texFilePath);
-		auto texFilePath = GetTexturePathFromModelAndTexPath (path, texFileName.c_str ());
+		//auto texFilePath = GetTexturePathFromModelAndTexPath (path, texFileName.c_str ());
 		// cout << "Texture File Path: " << texFilePath << endl;
-		_textureResources[i] = LoadTextureFromFile (texFilePath);
+		//_textureResources[i] = LoadTextureFromFile (texFilePath);
 		// printf_s ("Texture Resrouces[%i] : %s\n", i, _textureResources[i] != nullptr ? "True" : "False");
+
+		if (texFileName != "") {
+			auto texFilePath = GetTexturePathFromModelAndTexPath (path, texFileName.c_str ());
+			_textureResources[i] = LoadTextureFromFile (texFilePath);
+		}
+		if (sphFileName != "") {
+			auto sphFilePath = GetTexturePathFromModelAndTexPath (path, sphFileName.c_str ());
+			_sphResources[i] = LoadTextureFromFile (sphFilePath);
+		}
+		if (spaFileName != "") {
+			auto spaFilePath = GetTexturePathFromModelAndTexPath (path, spaFileName.c_str ());
+			_spaResources[i] = LoadTextureFromFile (spaFilePath);
+		}
 	}
 
 
@@ -613,7 +689,7 @@ bool ReadPMD () {
 	// create descriptor heap & view
 	D3D12_DESCRIPTOR_HEAP_DESC matDescHeapDesc = {};
 	// matDescHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	matDescHeapDesc.NumDescriptors = materialNum * 2;
+	matDescHeapDesc.NumDescriptors = materialNum * 5;
 	matDescHeapDesc.NodeMask = 0;
 	matDescHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	_d3dDesc.Device->CreateDescriptorHeap (&matDescHeapDesc, IID_PPV_ARGS (&_materialDescHeap));
@@ -629,6 +705,8 @@ bool ReadPMD () {
 	matCBVDesc.SizeInBytes = materialBuffSize;
 
 	auto whiteTex = CreateWhiteTexture ();
+	auto blackTex = CreateBlackTexture ();
+	auto gradTex = CreateGrayGradationTexture ();
 
 	auto matDescHeapH = _materialDescHeap->GetCPUDescriptorHandleForHeapStart ();
 	auto inc = _d3dDesc.Device->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -649,6 +727,36 @@ bool ReadPMD () {
 			_d3dDesc.Device->CreateShaderResourceView (_textureResources[i], &srvDesc, matDescHeapH);
 		}
 
+		matDescHeapH.ptr += inc;
+
+		if (_sphResources[i] == nullptr) {
+			srvDesc.Format = whiteTex->GetDesc().Format;
+			_d3dDesc.Device->CreateShaderResourceView (whiteTex, &srvDesc, matDescHeapH);
+		} else {
+			srvDesc.Format = _sphResources[i]->GetDesc ().Format;
+			_d3dDesc.Device->CreateShaderResourceView (_sphResources[i], &srvDesc, matDescHeapH);
+		}
+
+		matDescHeapH.ptr += inc;
+
+		if (_spaResources[i] == nullptr) {
+			srvDesc.Format = blackTex->GetDesc ().Format;
+			_d3dDesc.Device->CreateShaderResourceView (blackTex, &srvDesc, matDescHeapH);
+		} else {
+			srvDesc.Format = _spaResources[i]->GetDesc ().Format;
+			_d3dDesc.Device->CreateShaderResourceView (_spaResources[i], &srvDesc, matDescHeapH);
+		}
+
+		matDescHeapH.ptr += inc;
+
+		if (_toonResources[i] == nullptr) {
+			srvDesc.Format = gradTex->GetDesc ().Format;
+			_d3dDesc.Device->CreateShaderResourceView (gradTex, &srvDesc, matDescHeapH);
+		} else {
+			srvDesc.Format = _toonResources[i]->GetDesc ().Format;
+			_d3dDesc.Device->CreateShaderResourceView (_toonResources[i], &srvDesc, matDescHeapH);
+		}
+		
 		matDescHeapH.ptr += inc;
 	}
 
@@ -723,7 +831,7 @@ void SetCamera () {
 	_d3dDesc.Device->CreateCommittedResource (
 		&CD3DX12_HEAP_PROPERTIES (D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer (Get256Times (sizeof (MatricesData))),
+		&CD3DX12_RESOURCE_DESC::Buffer (Get256Times (sizeof (SceneData))),
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS (&cbvBuffer)
@@ -731,7 +839,9 @@ void SetCamera () {
 
 	cbvBuffer->Map (0, nullptr, (void**)&_matrixData);
 	_matrixData->world = worldMat;
-	_matrixData->viewproj = viewMat * projMat;
+	_matrixData->view = viewMat;
+	_matrixData->proj = projMat;
+	_matrixData->eye = eye;
 	cbvBuffer->Unmap (0, nullptr);
 
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
@@ -836,7 +946,7 @@ bool GPUSetting () {
 	descRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	// textures
-	descRange[2].NumDescriptors = 1;
+	descRange[2].NumDescriptors = 4;
 	descRange[2].BaseShaderRegister = 0;
 	descRange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descRange[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
@@ -857,20 +967,26 @@ bool GPUSetting () {
 	rootSigDesc.NumParameters = 2;
 	rootSigDesc.pParameters = rootParam;
 
-	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
-	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+	D3D12_STATIC_SAMPLER_DESC samplerDesc[2] = {};
+	samplerDesc[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
 	//samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-	samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
-	samplerDesc.MinLOD = 0.0f;
-	samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	samplerDesc[0].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+	samplerDesc[0].MaxLOD = D3D12_FLOAT32_MAX;
+	samplerDesc[0].MinLOD = 0.0f;
+	samplerDesc[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	samplerDesc[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 
-	rootSigDesc.pStaticSamplers = &samplerDesc;
-	rootSigDesc.NumStaticSamplers = 1;
+	samplerDesc[1] = samplerDesc[0];
+	samplerDesc[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc[1].ShaderRegister = 1;
+
+	rootSigDesc.pStaticSamplers = samplerDesc;
+	rootSigDesc.NumStaticSamplers = 2;
 
 	// Create
 
@@ -953,6 +1069,17 @@ bool GPUSetting () {
 }
 
 bool Setup () {
+	_loadLambdaTable["sph"] = _loadLambdaTable["spa"] = _loadLambdaTable["bmp"] = _loadLambdaTable["png"] = _loadLambdaTable["jpg"] = [](const wstring& path, TexMetadata* meta, ScratchImage& img) -> HRESULT {
+		return LoadFromWICFile (path.c_str(), WIC_FLAGS_NONE, meta, img);
+	};
+
+	_loadLambdaTable["tga"] = [](const wstring& path, TexMetadata* meta, ScratchImage& img) -> HRESULT {
+		return LoadFromTGAFile (path.c_str (), meta, img);
+	};
+
+	_loadLambdaTable["dds"] = [](const wstring& path, TexMetadata* meta, ScratchImage& img) -> HRESULT {
+		return LoadFromDDSFile (path.c_str (), DDS_FLAGS_NONE, meta, img);
+	};
 
 	if (!ReadPMD ()) {
 		return false;
