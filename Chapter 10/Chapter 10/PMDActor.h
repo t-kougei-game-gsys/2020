@@ -5,6 +5,7 @@
 #include <wrl.h>
 #include <vector>
 #include <string>
+#include <map>
 
 class PMDRenderer;
 class DX12Wrapper;
@@ -60,7 +61,7 @@ private:
 	ComPtr<ID3D12Resource> _transformMatBuffer = nullptr;
 	ComPtr<ID3D12DescriptorHeap> _transformHeap = nullptr;
 	Transform _transform;
-	Transform* _mappedTransform = nullptr;
+	DirectX::XMMATRIX* _mappedMatrices = nullptr;
 	ComPtr<ID3D12Resource> _transformBuffer = nullptr;
 	float _angle;
 
@@ -75,8 +76,17 @@ private:
 	std::vector<ComPtr<ID3D12Resource>> _toonResources;
 	ComPtr<ID3D12DescriptorHeap> _materialHeap = nullptr;
 	
+	//
+	// Bone
+	//
+	std::vector<DirectX::XMMATRIX> _boneMatrices;
+	struct BoneNode {
+		int boneIdx;
+		DirectX::XMFLOAT3 startPos;
+		std::vector<BoneNode*> children;
+	};
+	std::map<std::string, BoneNode> _boneNodeTable;
 
-	
 	HRESULT CreateMaterialData ();
 	HRESULT CreateMaterialAndTextureView ();
 	HRESULT CreateTransformView ();

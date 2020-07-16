@@ -65,10 +65,25 @@ HRESULT PMDActor::LoadPMDFile (const char* path) {
 		char comment[256];
 	};
 
+	#pragma pack(1)
+	struct PMDBone {
+		char boneName[20];
+		unsigned short parentNo;
+		unsigned short nextNo;
+		unsigned char type;
+		unsigned short ikBoneNo;
+		XMFLOAT3 pos;
+	};
+	#pragma pack()
+
 	PMDHeader pmdHeader = {};
 
 	char signature[3] = {};
 	auto fp = fopen (path, "rb");
+	if (fp == nullptr) {
+		assert (0);
+		return ERROR_FILE_NOT_FOUND;
+	}
 
 	fread (signature, sizeof (signature), 1, fp);
 	fread (&pmdHeader, sizeof (PMDHeader), 1, fp);
@@ -78,6 +93,7 @@ HRESULT PMDActor::LoadPMDFile (const char* path) {
 
 	unsigned int vertNum;
 	fread (&vertNum, sizeof (vertNum), 1, fp);
+	// printf_s ("Vertex Count: %i\n", vertNum);
 	//  char(8bits) of _vertNum * 38 amount
 	vector<unsigned char> vertices (vertNum* PMDVERTEX_SIZE);
 	fread (vertices.data (), vertices.size (), 1, fp);
@@ -92,6 +108,14 @@ HRESULT PMDActor::LoadPMDFile (const char* path) {
 
 	vector<PMDMaterial> pmdMaterials (materialNum);
 	fread (pmdMaterials.data (), pmdMaterials.size () * sizeof (PMDMaterial), 1, fp);
+
+	// bone
+	unsigned short boneNum = 0;
+	fread (&boneNum, sizeof (boneNum), 1, fp);
+	//printf_s ("Bone Count: %i\n", boneNum);
+
+	vector<PMDBone> pmdBones(boneNum);
+	fread (pmdBones.data (), sizeof (PMDBone), boneNum, fp);
 
 	fclose (fp);
 
@@ -215,11 +239,36 @@ HRESULT PMDActor::LoadPMDFile (const char* path) {
 		}
 	}
 
+	//
+	// Bone
+	//
+	vector<std::string> boneNames (pmdBones.size ());
+	for (int i = 0; i < pmdBones.size (); i++) {
+		auto& pb = pmdBones[i];
+		//boneNames[i] = pb.boneName;
+		//auto& node = _boneNodeTable[pb.boneName];
+		//node.boneIdx = i;
+		//node.startPos = pb.pos;
+	}
+
+	for (auto& pb : pmdBones) {
+		if (pb.parentNo >= pmdBones.size ()) {
+			continue;
+		}
+		
+		auto parentName = boneNames[pb.parentNo];
+		//_boneNodeTable[parentName].children.emplace_back (&_boneNodeTable[pb.boneName]);
+	}
+
+	// Bone matrix
+	_boneMatrices.resize (pmdBones.size ());
+	std::fill (_boneMatrices.begin (), _boneMatrices.end (), XMMatrixIdentity ());		// init
+
 	return S_OK;
 }
 
 HRESULT PMDActor::CreateTransformView () {
-	auto buffSize = D3D::Get256Times (sizeof (Transform));
+	auto buffSize = D3D::Get256Times (sizeof (XMMATRIX) * (1 + _boneMatrices.size ()));
 	auto hr = _dx12.Device ()->CreateCommittedResource (
 		&CD3DX12_HEAP_PROPERTIES (D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
@@ -233,12 +282,15 @@ HRESULT PMDActor::CreateTransformView () {
 		return hr;
 	}
 
-	hr = _transformBuffer->Map (0, nullptr, (void**)&_mappedTransform);
+	hr = _transformBuffer->Map (0, nullptr, (void**)&_mappedMatrices);
 	if (FAILED (hr)) {
 		assert (SUCCEEDED (hr));
 		return hr;
 	}
-	*_mappedTransform = _transform;
+	_mappedMatrices[0] = _transform.world;
+	auto node = _boneNodeTable["¶˜r"];
+	_boneMatrices[node.boneIdx] = XMMatrixRotationZ (XM_PIDIV2);
+	copy (_boneMatrices.begin (), _boneMatrices.end(), _mappedMatrices + 1);
 	_transformBuffer->Unmap (0, nullptr);
 
 	D3D12_DESCRIPTOR_HEAP_DESC transformDescHeapDesc = {};
@@ -366,7 +418,7 @@ HRESULT PMDActor::CreateMaterialAndTextureView () {
 
 void PMDActor::Update () {
 	_angle += 0.03f;
-	_mappedTransform->world = XMMatrixRotationY (_angle);
+	_mappedMatrices[0] = XMMatrixRotationY (_angle);
 }
 
 void PMDActor::Draw () {

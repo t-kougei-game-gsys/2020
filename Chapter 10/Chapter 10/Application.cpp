@@ -3,12 +3,16 @@
 #include "PMDRenderer.h"
 #include "PMDActor.h"
 
+#include <string>
 #include <Windows.h>
 
 #pragma comment (lib, "winmm.lib")
 
 const unsigned int window_width = 1280;
 const unsigned int window_height = 720;
+
+const std::string PATH_MIKU = "Model/èââπÉ~ÉN.pmd";
+const std::string PATH_LUKA = "Model/èÑâπÉãÉJ.pmd";
 
 LRESULT WindowProcedure (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch (msg) {
@@ -114,7 +118,7 @@ bool Application::Init () {
 
 	_dx12.reset (new DX12Wrapper (_hwnd));
 	_pmdRenderer.reset (new PMDRenderer (*_dx12));
-	_pmdActor.reset (new PMDActor ("Model/≥ı“Ù•ﬂ•Ø.pmd", *_pmdRenderer));
+	_pmdActor.reset (new PMDActor (PATH_MIKU.c_str (), *_pmdRenderer));
 
 	return true;
 }
