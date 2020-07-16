@@ -87,6 +87,8 @@ private:
 	};
 	std::map<std::string, BoneNode> _boneNodeTable;
 
+	void RecursiveMatrixMultipy (BoneNode* node, DirectX::XMMATRIX& mat);
+
 	HRESULT CreateMaterialData ();
 	HRESULT CreateMaterialAndTextureView ();
 	HRESULT CreateTransformView ();

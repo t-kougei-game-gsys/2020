@@ -116,6 +116,8 @@ HRESULT PMDActor::LoadPMDFile (const char* path) {
 
 	vector<PMDBone> pmdBones(boneNum);
 	fread (pmdBones.data (), sizeof (PMDBone), boneNum, fp);
+	// break point: can't display japanese, but can printf
+	// printf_s ("BoneName: %s\n", pmdBones[0].boneName);
 
 	fclose (fp);
 
@@ -245,10 +247,10 @@ HRESULT PMDActor::LoadPMDFile (const char* path) {
 	vector<std::string> boneNames (pmdBones.size ());
 	for (int i = 0; i < pmdBones.size (); i++) {
 		auto& pb = pmdBones[i];
-		//boneNames[i] = pb.boneName;
-		//auto& node = _boneNodeTable[pb.boneName];
-		//node.boneIdx = i;
-		//node.startPos = pb.pos;
+		boneNames[i] = pb.boneName;
+		auto& node = _boneNodeTable[pb.boneName];
+		node.boneIdx = i;
+		node.startPos = pb.pos;
 	}
 
 	for (auto& pb : pmdBones) {
@@ -257,12 +259,36 @@ HRESULT PMDActor::LoadPMDFile (const char* path) {
 		}
 		
 		auto parentName = boneNames[pb.parentNo];
-		//_boneNodeTable[parentName].children.emplace_back (&_boneNodeTable[pb.boneName]);
+		_boneNodeTable[parentName].children.emplace_back (&_boneNodeTable[pb.boneName]);
 	}
 
 	// Bone matrix
 	_boneMatrices.resize (pmdBones.size ());
 	std::fill (_boneMatrices.begin (), _boneMatrices.end (), XMMatrixIdentity ());		// init
+
+	auto node = _boneNodeTable["左腕"];
+	// Can read bone
+	//printf_s ("Bone Index: %i\n", node.boneIdx);
+	//printf_s ("Bone children: %i\n", node.children[0]->boneIdx);
+	auto& pos = node.startPos;
+	// 原理は Scale * Rotation * Positionのように同じだ
+	// 回転するとき、原点はBONEの頂点の位置ではなく、まず原点に移動させて、そして回転させて、最後元の位置に戻す。
+	auto armMat = XMMatrixTranslation (-pos.x, -pos.y, -pos.z) 
+				* XMMatrixRotationZ (XM_PIDIV2)
+				* XMMatrixTranslation (pos.x, pos.y, pos.z);
+	//RecursiveMatrixMultipy (&node, armMat);
+	_boneMatrices [node.boneIdx] = armMat;
+
+	node = _boneNodeTable["左ひじ"];
+	pos = node.startPos;
+	auto elbowMat = XMMatrixTranslation (-pos.x, -pos.y, -pos.z)
+		* XMMatrixRotationZ (-XM_PIDIV2)
+		* XMMatrixTranslation (pos.x, pos.y, pos.z);
+	//RecursiveMatrixMultipy (&node, elbowMat);
+	_boneMatrices[node.boneIdx] = elbowMat;
+
+	XMMATRIX identity = XMMatrixIdentity ();
+	RecursiveMatrixMultipy (&_boneNodeTable["センター"], identity);
 
 	return S_OK;
 }
@@ -288,8 +314,6 @@ HRESULT PMDActor::CreateTransformView () {
 		return hr;
 	}
 	_mappedMatrices[0] = _transform.world;
-	auto node = _boneNodeTable["左腕"];
-	_boneMatrices[node.boneIdx] = XMMatrixRotationZ (XM_PIDIV2);
 	copy (_boneMatrices.begin (), _boneMatrices.end(), _mappedMatrices + 1);
 	_transformBuffer->Unmap (0, nullptr);
 
@@ -442,5 +466,12 @@ void PMDActor::Draw () {
 		_dx12.CommandList ()->DrawIndexedInstanced (m.indicesNum, 1, idxOffset, 0, 0);
 		materialH.ptr += cbvsrvIncSize;
 		idxOffset += m.indicesNum;
+	}
+}
+
+void PMDActor::RecursiveMatrixMultipy (BoneNode* node, DirectX::XMMATRIX& mat) {
+	_boneMatrices[node->boneIdx] *= mat;
+	for (auto& cnode : node->children) {
+		RecursiveMatrixMultipy (cnode, _boneMatrices[node->boneIdx]);
 	}
 }
