@@ -9,6 +9,8 @@ using namespace Microsoft::WRL;
 using namespace std;
 using namespace DirectX;
 
+constexpr float epsilon = 0.0005f;
+
 namespace {
 	string GetExtension (const string& path) {
 		int idx = path.rfind ('.');
@@ -327,12 +329,29 @@ void PMDActor::LoadVMDFile (const char* filePath, const char* name) {
 	// Change to use data.
 	for (auto& vmdMotion : vmdMotions) {
 		XMVECTOR quaternion = XMLoadFloat4 (&vmdMotion.quaternion);
-		_keyFrameDatas[vmdMotion.boneName].emplace_back (KeyFrame (vmdMotion.frameNo, quaternion));
+		_keyFrameDatas[vmdMotion.boneName].emplace_back (KeyFrame (vmdMotion.frameNo, quaternion
+																	, XMFLOAT2 ((float)vmdMotion.bezier[3] / 127.0f, (float)vmdMotion.bezier[7] / 127.0f)
+																	, XMFLOAT2 ((float)vmdMotion.bezier[11] / 127.0f, (float)vmdMotion.bezier[15] / 127.0f))
+																	);
+		_duration = std::max<unsigned int> (_duration, vmdMotion.frameNo);
+	}
+	// printf_s ("Max FrameNo : %i\n", _duration);
+
+	// sort
+	for (auto& keyFrame : _keyFrameDatas) {
+		sort (keyFrame.second.begin (), keyFrame.second.end (), [](const KeyFrame& l, const KeyFrame& r) {
+			return l.frameNo <= r.frameNo;
+		});
 	}
 
+	// calculate bone transformation
 	for (auto& keyFrame : _keyFrameDatas) {
 		// get bone node
-		auto node = _boneNodeTable[keyFrame.first];
+		auto itBoneNode = _boneNodeTable.find (keyFrame.first);
+		if (itBoneNode == _boneNodeTable.end ()) {
+			continue;
+		}
+		auto node = itBoneNode->second;
 		auto& pos = node.startPos;
 		auto mat = XMMatrixTranslation (-pos.x, -pos.y, -pos.z)
 					* XMMatrixRotationQuaternion (keyFrame.second[0].quaternion)
@@ -346,7 +365,51 @@ void PMDActor::LoadVMDFile (const char* filePath, const char* name) {
 }
 
 void PMDActor::PlayAnimation () {
+	_startTime = timeGetTime ();
+}
 
+void PMDActor::MotionUpdate () {
+	auto elapsedTime = timeGetTime() - _startTime;
+	// 30 frame per second
+	unsigned int frameNo = 30 * (elapsedTime / 1000.0f);
+
+	if (frameNo > _duration) {
+		_startTime = timeGetTime ();
+		frameNo = 0;
+	}
+
+	fill (_boneMatrices.begin (), _boneMatrices.end (), XMMatrixIdentity ());
+	
+	for (auto& keyFrame : _keyFrameDatas) {
+		auto node = _boneNodeTable [keyFrame.first];
+		auto motions = keyFrame.second;
+		auto rit = find_if (motions.rbegin (), motions.rend (), [frameNo](const KeyFrame& motion) {
+			return motion.frameNo <= frameNo;
+		});
+
+		if (rit == motions.rend ()) {
+			continue;
+		}
+
+		XMMATRIX rotation;
+		auto it = rit.base ();
+		if (it != motions.end ()) {
+			auto t = static_cast<float> (frameNo - rit->frameNo) / static_cast <float> (it->frameNo - rit->frameNo);
+			t = GetYFromXOnBezier (t, it->p1, it->p2, 12);
+			rotation = XMMatrixRotationQuaternion (XMQuaternionSlerp (rit->quaternion, it->quaternion, t));
+		} else {
+			rotation = XMMatrixRotationQuaternion (rit->quaternion);
+		}
+
+		auto& pos = node.startPos;
+		auto mat = XMMatrixTranslation (-pos.x, -pos.y, -pos.z)
+					* rotation
+					* XMMatrixTranslation (pos.x, pos.y, pos.z);
+		_boneMatrices [node.boneIdx] = mat;
+	}
+	XMMATRIX mat = XMMatrixIdentity ();
+	RecursiveMatrixMultipy (&_boneNodeTable ["ÉZÉìÉ^Å["], mat);
+	copy (_boneMatrices.begin (), _boneMatrices.end (), _mappedMatrices + 1);
 }
 
 HRESULT PMDActor::CreateTransformView () {
@@ -497,8 +560,10 @@ HRESULT PMDActor::CreateMaterialAndTextureView () {
 }
 
 void PMDActor::Update () {
-	_angle += 0.03f;
-	_mappedMatrices[0] = XMMatrixRotationY (_angle);
+	//_angle += 0.03f;
+	//_mappedMatrices[0] = XMMatrixRotationY (_angle);
+
+	MotionUpdate ();
 }
 
 void PMDActor::Draw () {
@@ -531,4 +596,25 @@ void PMDActor::RecursiveMatrixMultipy (BoneNode* node, DirectX::XMMATRIX& mat) {
 		XMMATRIX m = _boneMatrices[cnode->boneIdx] * mat;
 		RecursiveMatrixMultipy (cnode, m);
 	}
+}
+
+float PMDActor::GetYFromXOnBezier (float x, const XMFLOAT2& a, const XMFLOAT2& b, uint8_t n) {
+	if (a.x == a.y && b.x == b.y)
+		return x;
+
+	float t = x;
+	const float k0 = 1 + 3 * a.x - 3 * b.x;//t^3ÇÃåWêî
+	const float k1 = 3 * b.x - 6 * a.x;//t^2ÇÃåWêî
+	const float k2 = 3 * a.x;//tÇÃåWêî
+
+	for (int i = 0; i < n; ++i) {
+		auto ft = k0 * t * t * t + k1 * t * t + k2 * t - x;
+		if (ft <= epsilon && ft >= -epsilon)
+			break;
+
+		t -= ft / 2;
+	}
+
+	auto r = 1 - t;
+	return t * t * t + 3 * t * t * r * b.y + 3 * t * r * r * a.y;
 }

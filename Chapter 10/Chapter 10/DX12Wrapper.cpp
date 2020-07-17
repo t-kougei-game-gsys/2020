@@ -360,7 +360,7 @@ HRESULT DX12Wrapper::CreateSceneView () {
 	_mappedSceneData = nullptr;
 	hr = _sceneConstBuff->Map (0, nullptr, (void**)&_mappedSceneData);
 
-	XMFLOAT3 eye (0, 10, -30);
+	XMFLOAT3 eye (5, 10, -30);
 	XMFLOAT3 target (0, 10, 0);
 	XMFLOAT3 up (0, 1, 0);
 	_mappedSceneData->view = XMMatrixLookAtLH (XMLoadFloat3 (&eye), XMLoadFloat3 (&target), XMLoadFloat3 (&up));

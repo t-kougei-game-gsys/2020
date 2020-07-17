@@ -124,7 +124,7 @@ bool Application::Init () {
 	_dx12.reset (new DX12Wrapper (_hwnd));
 	_pmdRenderer.reset (new PMDRenderer (*_dx12));
 	_pmdActor.reset (new PMDActor (PATH_MIKU.c_str (), *_pmdRenderer));
-	 _pmdActor->LoadVMDFile (PATH_MOTION_POSE.c_str (), "pose");
+	 _pmdActor->LoadVMDFile (PATH_MOTION_MOTION.c_str (), "pose");
 	 _pmdActor->PlayAnimation ();
 
 	return true;
