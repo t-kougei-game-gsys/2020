@@ -11,8 +11,13 @@
 const unsigned int window_width = 1280;
 const unsigned int window_height = 720;
 
-const std::string PATH_MIKU = "Model/‰‰¹ƒ~ƒN.pmd";
-const std::string PATH_LUKA = "Model/„‰¹ƒ‹ƒJ.pmd";
+const std::string PATH_MIKU = "Model/Miku.pmd";
+const std::string PATH_LUKA = "Model/Luka.pmd";
+
+const std::string PATH_MOTION_MOTION = "motion/motion.vmd";
+const std::string PATH_MOTION_POSE = "motion/pose.vmd";
+const std::string PATH_MOTION_SWING = "motion/swing.vmd";
+const std::string PATH_MOTION_SWING2 = "motion/swing2.vmd";
 
 LRESULT WindowProcedure (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch (msg) {
@@ -119,6 +124,8 @@ bool Application::Init () {
 	_dx12.reset (new DX12Wrapper (_hwnd));
 	_pmdRenderer.reset (new PMDRenderer (*_dx12));
 	_pmdActor.reset (new PMDActor (PATH_MIKU.c_str (), *_pmdRenderer));
+	 _pmdActor->LoadVMDFile (PATH_MOTION_POSE.c_str (), "pose");
+	 _pmdActor->PlayAnimation ();
 
 	return true;
 }

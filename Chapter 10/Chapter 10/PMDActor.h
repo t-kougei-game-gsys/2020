@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <unordered_map>
 
 class PMDRenderer;
 class DX12Wrapper;
@@ -87,6 +88,19 @@ private:
 	};
 	std::map<std::string, BoneNode> _boneNodeTable;
 
+	//
+	// Animation
+	//
+	struct KeyFrame {
+		unsigned int frameNo;
+		DirectX::XMVECTOR quaternion;
+
+		KeyFrame (unsigned int fno, DirectX::XMVECTOR& q) : frameNo (fno), quaternion (q) {}
+	};
+	std::unordered_map<std::string, std::vector<KeyFrame>> _keyFrameDatas;
+
+
+
 	void RecursiveMatrixMultipy (BoneNode* node, DirectX::XMMATRIX& mat);
 
 	HRESULT CreateMaterialData ();
@@ -102,5 +116,8 @@ public:
 	
 	void Update ();
 	void Draw ();
+
+	void LoadVMDFile (const char* filePath, const char* name);
+	void PlayAnimation ();
 };
 
