@@ -114,7 +114,7 @@ HRESULT PMDActor::LoadPMDFile (const char* path) {
 	// bone
 	unsigned short boneNum = 0;
 	fread (&boneNum, sizeof (boneNum), 1, fp);
-	//printf_s ("Bone Count: %i\n", boneNum);
+	// printf_s ("Bone Count: %i\n", boneNum);
 
 	vector<PMDBone> pmdBones(boneNum);
 	fread (pmdBones.data (), sizeof (PMDBone), boneNum, fp);
@@ -603,9 +603,9 @@ float PMDActor::GetYFromXOnBezier (float x, const XMFLOAT2& a, const XMFLOAT2& b
 		return x;
 
 	float t = x;
-	const float k0 = 1 + 3 * a.x - 3 * b.x;//t^3‚ÌŒW”
-	const float k1 = 3 * b.x - 6 * a.x;//t^2‚ÌŒW”
-	const float k2 = 3 * a.x;//t‚ÌŒW”
+	const float k0 = 1 + 3 * a.x - 3 * b.x;
+	const float k1 = 3 * b.x - 6 * a.x;
+	const float k2 = 3 * a.x;
 
 	for (int i = 0; i < n; ++i) {
 		auto ft = k0 * t * t * t + k1 * t * t + k2 * t - x;
