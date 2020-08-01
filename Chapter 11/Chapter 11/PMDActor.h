@@ -8,6 +8,9 @@
 #include <map>
 #include <unordered_map>
 
+using namespace DirectX;
+using namespace std;
+
 class PMDRenderer;
 class DX12Wrapper;
 class PMDActor {
@@ -41,6 +44,15 @@ private:
 		void* operator new (size_t size) {
 			return _aligned_malloc (size, 16);
 		}
+	};
+
+	struct PMDIK {
+		uint16_t boneIdx;					// bone index
+		uint16_t targetIdx;					// target bone index
+		// uint8_t chainLen;				// length
+		uint16_t iterations;				// execute count
+		float limit;						// angle limit
+		std::vector<uint16_t> nodeIdxes;	// bones
 	};
 
 	PMDRenderer& _renderer;
@@ -80,33 +92,65 @@ private:
 	//
 	// Bone
 	//
-	std::vector<DirectX::XMMATRIX> _boneMatrices;
+	std::vector<DirectX::XMMATRIX> _boneMatrices;	// KeyFrame animation matrix
 	struct BoneNode {
-		int boneIdx;
-		DirectX::XMFLOAT3 startPos;
-		std::vector<BoneNode*> children;
+		uint32_t boneIdx;
+		uint32_t boneType;
+		uint32_t parentBone;
+		uint32_t ikParentBone;
+		XMFLOAT3 startPos;
+		vector<BoneNode*> children;
 	};
-	std::map<std::string, BoneNode> _boneNodeTable;
+	map<string, BoneNode> _boneNodeTable;
+	vector<string> _boneNameArray;
+	vector<BoneNode*> _boneNodeAddressArray;
+	std::vector<uint32_t> _kneeIdxes;
 
 	//
 	// Animation
 	//
 	struct KeyFrame {
 		unsigned int frameNo;
-		DirectX::XMVECTOR quaternion;
-		DirectX::XMFLOAT2 p1, p2;
+		XMFLOAT2 p1, p2;		// bezier point
+		XMVECTOR quaternion;	// rotation
+		XMFLOAT3 offset;		// translation
 
-		KeyFrame (unsigned int fno, DirectX::XMVECTOR& q, const DirectX::XMFLOAT2& ip1, const DirectX::XMFLOAT2& ip2) : 
-				frameNo (fno), quaternion (q), p1 (ip1), p2 (ip2) {}
+		KeyFrame (unsigned int fno, XMVECTOR& q, XMFLOAT3& ofst, const XMFLOAT2& ip1, const XMFLOAT2& ip2) : 
+				frameNo (fno), quaternion (q), offset (ofst), p1 (ip1), p2 (ip2) {}
 	};
-	std::unordered_map<std::string, std::vector<KeyFrame>> _keyFrameDatas;
+	unordered_map<string, vector<KeyFrame>> _keyFrameDatas;
 	DWORD _startTime;
 	unsigned int _duration = 0;
+
+	//
+	// IK
+	//
+	vector<PMDIK> _ikData;
+	
+	struct VMDIKEnable {
+		uint32_t frameNo;
+		unordered_map<string, bool> ikEnableTable;
+	};
+	std::vector<VMDIKEnable> _ikEnableData;
+
+	// CCD-IK
+	// @param ik IK Object
+	void SolveCCDIK (const PMDIK& ik);
+
+	// ó]å∑íËóùIK
+	// @param ik IK Object
+	void SolveCosineIK (const PMDIK& ik);
+
+	// LookAt
+	// @param ik IK Object
+	void SolveLookAt (const PMDIK& ik);
+
+	void IKSolve (int frameNo);
 
 	void MotionUpdate ();
 	float GetYFromXOnBezier (float x, const DirectX::XMFLOAT2& a, const DirectX::XMFLOAT2& b, uint8_t n);
 
-	void RecursiveMatrixMultipy (BoneNode* node, DirectX::XMMATRIX& mat);
+	void RecursiveMatrixMultipy (BoneNode* node, const XMMATRIX& mat, bool flg = false);
 
 	HRESULT CreateMaterialData ();
 	HRESULT CreateMaterialAndTextureView ();
@@ -125,4 +169,3 @@ public:
 	void LoadVMDFile (const char* filePath, const char* name);
 	void PlayAnimation ();
 };
-

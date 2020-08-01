@@ -1,7 +1,16 @@
 #pragma once
 
+#include <string>
+#include <DirectXMath.h>
+#include <sstream>
+
+using namespace std;
+using namespace DirectX;
+
 namespace D3D {
 	unsigned int Get256Times (unsigned int size);
+
+	void PrintfFloat3 (ostringstream& oss, string start, XMFLOAT3& vector, string end);
 
 	//
 	// Color

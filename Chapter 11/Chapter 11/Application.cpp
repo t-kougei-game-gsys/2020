@@ -14,10 +14,7 @@ const unsigned int window_height = 720;
 const std::string PATH_MIKU = "Model/Miku.pmd";
 const std::string PATH_LUKA = "Model/Luka.pmd";
 
-const std::string PATH_MOTION_MOTION = "motion/motion.vmd";
-const std::string PATH_MOTION_POSE = "motion/pose.vmd";
-const std::string PATH_MOTION_SWING = "motion/swing.vmd";
-const std::string PATH_MOTION_SWING2 = "motion/swing2.vmd";
+const std::string PATH_MOTION_MOTION = "motion/squat.vmd";
 
 LRESULT WindowProcedure (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch (msg) {
