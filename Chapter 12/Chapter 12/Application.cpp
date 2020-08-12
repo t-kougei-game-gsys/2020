@@ -93,11 +93,24 @@ void Application::Run () {
 
 		DisplayFPS (deltaTime);
 
+#pragma region Test
+		//_dx12->PreDrawToPera1 ();
+		//_dx12->Clear ();
+		//_pmdRenderer->BeforeDraw ();
+		//_dx12->DrawToPera1 (_pmdRenderer);
+		//_pmdActor->Update ();
+		//_pmdActor->Draw ();
+		//// _dx12->Draw (_pmdRenderer);
+		//_dx12->Flip ();
+#pragma endregion
+
 		_dx12->PreDrawToPera1 ();
-		_pmdRenderer->Update ();
+		//_pmdRenderer->Update ();
+		_pmdActor->Update ();
 		_pmdRenderer->BeforeDraw ();
 		_dx12->DrawToPera1 (_pmdRenderer);
-		_pmdRenderer->Draw ();
+		//_pmdRenderer->Draw ();
+		_pmdActor->Draw ();
 		_dx12->PostDrawToPera1 ();
 		_dx12->DrawHorizontalBokeh();
 		_dx12->Clear();

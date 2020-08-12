@@ -624,9 +624,24 @@ bool DX12Wrapper::CreatePeraPipeline () {
 	gpsDesc.SampleDesc.Quality = 0;
 	gpsDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
+	D3D12_DESCRIPTOR_RANGE range = {};
+	range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	range.BaseShaderRegister = 0;
+	range.NumDescriptors = 1;
+
+	D3D12_ROOT_PARAMETER rp = {};
+	rp.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rp.DescriptorTable.pDescriptorRanges = &range;
+	rp.DescriptorTable.NumDescriptorRanges = 1;
+
+	D3D12_STATIC_SAMPLER_DESC sampler = CD3DX12_STATIC_SAMPLER_DESC (0);
+
 	D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
-	rsDesc.NumParameters = 0;
-	rsDesc.NumStaticSamplers = 0;
+	rsDesc.NumParameters = 1;
+	rsDesc.pParameters = &rp;
+	rsDesc.NumStaticSamplers = 1;
+	rsDesc.pStaticSamplers = &sampler;
 	rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
 	ComPtr<ID3DBlob> rsBlob;
@@ -724,14 +739,6 @@ bool DX12Wrapper::CreatePeraResourcesAndView () {
 	return true;
 }
 
-void DX12Wrapper::Draw (shared_ptr<PMDRenderer> renderer) {
-	_cmdList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	_cmdList->SetGraphicsRootSignature (_peraRS.Get ());
-	_cmdList->SetPipelineState (_peraPipeline.Get ());
-	_cmdList->IASetVertexBuffers (0, 1, &_peraVBV);
-	_cmdList->DrawInstanced (4, 1, 0, 0);
-}
-
 bool DX12Wrapper::PreDrawToPera1 () {
 	_cmdList->ResourceBarrier (1, &CD3DX12_RESOURCE_BARRIER::Transition (_peraResource.Get (),
 																		 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
@@ -742,7 +749,7 @@ bool DX12Wrapper::PreDrawToPera1 () {
 
 	_cmdList->OMSetRenderTargets (1, &rtvHeapPointer, false, &dsvHeapPointer);
 
-	float clsClr[4] = {0.5f, 0.5f, 0.5f, 1.0f};
+	float clsClr[4] = {0.2f, 0.5f, 0.5f, 1.0f};
 	_cmdList->ClearRenderTargetView (rtvHeapPointer, clsClr, 0, nullptr);
 	_cmdList->ClearDepthStencilView (dsvHeapPointer, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
@@ -758,8 +765,10 @@ void DX12Wrapper::DrawToPera1 (shared_ptr<PMDRenderer> renderer) {
 	_cmdList->SetGraphicsRootDescriptorTable (0, _sceneDescHeap->GetGPUDescriptorHandleForHeapStart ());
 }
 
-bool DX12Wrapper::PostDrawToPera1 () {
-	return true;
+void DX12Wrapper::PostDrawToPera1 () {
+	_cmdList->ResourceBarrier (1, &CD3DX12_RESOURCE_BARRIER::Transition (_peraResource.Get (),
+																		 D3D12_RESOURCE_STATE_RENDER_TARGET,
+																		 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 }
 
 void DX12Wrapper::DrawHorizontalBokeh () {
@@ -780,10 +789,26 @@ bool DX12Wrapper::Clear () {
 
 	float clsClr[4] = {0.2f, 0.5f, 0.5f, 1.0f};
 	_cmdList->ClearRenderTargetView (rtvHeapPointer, clsClr, 0, nullptr);
-	//_cmdList->ClearDepthStencilView(_dsvHeap->GetCPUDescriptorHandleForHeapStart(),
-	//	D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 	return true;
+}
+
+// Draw to back buffer
+void DX12Wrapper::Draw (shared_ptr<PMDRenderer> renderer) {
+	// First, set root signature
+	_cmdList->SetGraphicsRootSignature (_peraRS.Get ());
+	_cmdList->SetPipelineState (_peraPipeline.Get ());
+
+	ID3D12DescriptorHeap* heaps[] = {_peraSRVHeap.Get ()};
+	_cmdList->SetDescriptorHeaps (1, heaps);
+
+	auto handle = _peraSRVHeap->GetGPUDescriptorHandleForHeapStart ();
+	_cmdList->SetGraphicsRootDescriptorTable (0, handle);
+
+	_cmdList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+	_cmdList->IASetVertexBuffers (0, 1, &_peraVBV);
+	_cmdList->DrawInstanced (4, 1, 0, 0);
 }
 
 void DX12Wrapper::Flip () {

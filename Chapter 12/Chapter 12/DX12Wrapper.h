@@ -120,7 +120,7 @@ public:
 
 	bool PreDrawToPera1 ();
 	void DrawToPera1 (std::shared_ptr<PMDRenderer> renderer);
-	bool PostDrawToPera1 ();
+	void PostDrawToPera1 ();
 	void DrawHorizontalBokeh ();
 	bool Clear ();
 	void Draw (std::shared_ptr<PMDRenderer> renderer);

@@ -779,6 +779,7 @@ void PMDActor::Update () {
 void PMDActor::Draw () {
 	_dx12.CommandList ()->IASetVertexBuffers (0, 1, &_vbView);
 	_dx12.CommandList ()->IASetIndexBuffer (&_ibView);
+	_dx12.CommandList ()->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	ID3D12DescriptorHeap* transheaps[] = {_transformHeap.Get ()};
 	_dx12.CommandList ()->SetDescriptorHeaps (1, transheaps);
