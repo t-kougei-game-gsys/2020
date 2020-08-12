@@ -10,6 +10,8 @@
 #include <functional>
 #include <memory>
 
+class PMDActor;
+class PMDRenderer;
 class DX12Wrapper {
 
 	struct SceneData {
@@ -41,7 +43,7 @@ class DX12Wrapper {
 	//	
 	ComPtr<ID3D12Resource> _depthBuffer = nullptr;
 	std::vector<ID3D12Resource*> _backBuffers;
-	ComPtr<ID3D12DescriptorHeap> _rtvHeaps = nullptr;
+	ComPtr<ID3D12DescriptorHeap> _rtvHeap = nullptr;
 	ComPtr<ID3D12DescriptorHeap> _dsvHeap = nullptr;
 	std::unique_ptr<D3D12_VIEWPORT> _viewport;
 	std::unique_ptr<D3D12_RECT> _scissorRect;
@@ -66,6 +68,36 @@ class DX12Wrapper {
 	std::map < std::string, LoadLambda_t> _loadLambdaTable;
 	std::unordered_map<std::string, ComPtr<ID3D12Resource>> _textureTable;
 
+#pragma region Chapter 12
+
+	HWND _hwnd;
+	DirectX::XMFLOAT3 _eye;
+	DirectX::XMFLOAT3 _target;
+	DirectX::XMFLOAT3 _up;
+	float _fov = DirectX::XM_PI / 6;	// 30Åã
+
+	ComPtr<ID3D12Resource> _peraResource;
+	ComPtr<ID3D12DescriptorHeap> _peraRTVHeap;
+	ComPtr<ID3D12DescriptorHeap> _peraSRVHeap;
+
+	ComPtr<ID3D12Resource> _peraVB;
+	D3D12_VERTEX_BUFFER_VIEW _peraVBV;
+
+	ComPtr<ID3D12PipelineState> _peraPipeline;
+	ComPtr<ID3D12RootSignature> _peraRS;
+
+	bool CreatePeraResourcesAndView ();
+	bool CreatePeraVertex ();
+	bool CreatePeraPipeline ();
+
+	void Barrier (ID3D12Resource* p,
+				  D3D12_RESOURCE_STATES before,
+				  D3D12_RESOURCE_STATES after);
+
+	void WaitForCommandQueue ();
+
+#pragma endregion
+
 	HRESULT	CreateFinalRenderTargets ();
 	HRESULT CreateDepthStencilView ();
 	HRESULT CreateSwapChain (const HWND& hwnd);
@@ -79,9 +111,23 @@ public:
 	DX12Wrapper (HWND hwnd);
 	~DX12Wrapper ();
 
-	void Update ();
-	void BeginDraw ();
-	void EndDraw ();
+	//void Update ();
+	//void BeginDraw ();
+	//void EndDraw ();
+
+#pragma region Chapter 12
+	bool Init ();
+
+	bool PreDrawToPera1 ();
+	void DrawToPera1 (std::shared_ptr<PMDRenderer> renderer);
+	bool PostDrawToPera1 ();
+	void DrawHorizontalBokeh ();
+	bool Clear ();
+	void Draw (std::shared_ptr<PMDRenderer> renderer);
+	void Flip ();
+
+
+#pragma endregion
 
 	ComPtr<ID3D12Resource> GetTextureByPath (const char* texPath);
 
@@ -89,5 +135,5 @@ public:
 	ComPtr<ID3D12GraphicsCommandList> CommandList ();
 	ComPtr<IDXGISwapChain4> Swapchain ();
 
-	void SetScene ();
+	// void SetScene ();
 };

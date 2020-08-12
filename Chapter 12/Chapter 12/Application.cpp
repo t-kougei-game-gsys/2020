@@ -93,22 +93,16 @@ void Application::Run () {
 
 		DisplayFPS (deltaTime);
 
-		_dx12->BeginDraw ();
-
-		_dx12->CommandList ()->SetPipelineState (_pmdRenderer->GetPipelineState ());
-		
-		_dx12->CommandList ()->SetGraphicsRootSignature (_pmdRenderer->GetRootSignature ());
-
-		_dx12->CommandList ()->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		_dx12->SetScene ();
-
-		_pmdActor->Update ();
-		_pmdActor->Draw ();
-
-		_dx12->EndDraw ();
-
-		_dx12->Swapchain ()->Present (1, 0);
+		_dx12->PreDrawToPera1 ();
+		_pmdRenderer->Update ();
+		_pmdRenderer->BeforeDraw ();
+		_dx12->DrawToPera1 (_pmdRenderer);
+		_pmdRenderer->Draw ();
+		_dx12->PostDrawToPera1 ();
+		_dx12->DrawHorizontalBokeh();
+		_dx12->Clear();
+		_dx12->Draw (_pmdRenderer);
+		_dx12->Flip();
 
 		lastTime = currTime;
 	}
@@ -120,9 +114,16 @@ bool Application::Init () {
 
 	_dx12.reset (new DX12Wrapper (_hwnd));
 	_pmdRenderer.reset (new PMDRenderer (*_dx12));
+	if (!_dx12->Init ()) {
+		return false;
+	}
+	_pmdRenderer->Init ();
+
 	_pmdActor.reset (new PMDActor (PATH_MIKU.c_str (), *_pmdRenderer));
-	 _pmdActor->LoadVMDFile (PATH_MOTION_MOTION.c_str (), "pose");
-	 _pmdActor->PlayAnimation ();
+	_pmdActor->LoadVMDFile (PATH_MOTION_MOTION.c_str (), "pose");
+	_pmdActor->PlayAnimation ();
+
+	//_pmdRenderer->AddActor (_pmdActor);
 
 	return true;
 }

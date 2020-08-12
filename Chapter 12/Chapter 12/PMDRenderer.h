@@ -27,7 +27,7 @@ private:
 	ID3D12Resource* CreateBlackTexture ();
 	ID3D12Resource* CreateGrayGradationTexture ();
 
-	HRESULT CreateGraphicsPipelineForPMD ();
+	HRESULT CreatePipeline ();
 	HRESULT CreateRootSignature ();
 	
 	bool CheckShaderCompileResult (HRESULT hr, ID3DBlob* error = nullptr);
@@ -39,5 +39,18 @@ public:
 	void Draw ();
 	ID3D12PipelineState* GetPipelineState ();
 	ID3D12RootSignature* GetRootSignature ();
+
+#pragma region Chapter 12
+
+	void BeforeDraw ();
+	void AnimationStart ();
+
+	void AddActor (std::shared_ptr<PMDActor> actor);
+	void AddActor (const char* filePath);
+
+	void Init ();
+
+#pragma endregion
+
 };
 

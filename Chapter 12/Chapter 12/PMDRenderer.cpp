@@ -17,13 +17,7 @@ namespace {
 	}
 }
 
-PMDRenderer::PMDRenderer (DX12Wrapper& dx12) :_dx12 (dx12) {
-	assert (SUCCEEDED (CreateRootSignature ()));
-	assert (SUCCEEDED (CreateGraphicsPipelineForPMD ()));
-	_whiteTex = CreateWhiteTexture ();
-	_blackTex = CreateBlackTexture ();
-	_gradTex = CreateGrayGradationTexture ();
-}
+PMDRenderer::PMDRenderer (DX12Wrapper& dx12) :_dx12 (dx12) {}
 
 PMDRenderer::~PMDRenderer () {}
 
@@ -113,7 +107,7 @@ bool PMDRenderer::CheckShaderCompileResult (HRESULT hr, ID3DBlob* error) {
 	}
 }
 
-HRESULT PMDRenderer::CreateGraphicsPipelineForPMD () {
+HRESULT PMDRenderer::CreatePipeline () {
 	ComPtr<ID3DBlob> vsBlob = nullptr;
 	ComPtr<ID3DBlob> psBlob = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -247,3 +241,22 @@ ID3D12PipelineState* PMDRenderer::GetPipelineState () {
 ID3D12RootSignature* PMDRenderer::GetRootSignature () {
 	return _rootSig.Get ();
 }
+
+#pragma region Chapter 12
+
+void PMDRenderer::Init () {
+	CreateRootSignature ();
+	CreatePipeline ();
+
+	_whiteTex = CreateWhiteTexture ();
+	_blackTex = CreateBlackTexture ();
+	_gradTex = CreateGrayGradationTexture ();
+}
+
+void PMDRenderer::BeforeDraw () {
+	auto cmdlist = _dx12.CommandList ();
+	cmdlist->SetPipelineState (_pipeline.Get ());
+	cmdlist->SetGraphicsRootSignature (_rootSig.Get ());
+}
+
+#pragma endregion
