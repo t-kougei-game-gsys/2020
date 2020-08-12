@@ -1019,7 +1019,7 @@ void DX12Wrapper::WaitForCommandQueue () {
 }
 
 bool DX12Wrapper::CreateEffectBufferAndView () {
-	if (!LoadPictureFromFile ("normal/crack_n.png", _effectTexBuffer)) {
+	if (!LoadPictureFromFile ("normal/normalmap.jpg", _effectTexBuffer)) {
 		return false;
 	}
 
