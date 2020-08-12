@@ -10,6 +10,8 @@
 #include <functional>
 #include <memory>
 
+#include "D3DUtility.h"
+
 class PMDActor;
 class PMDRenderer;
 class DX12Wrapper {
@@ -27,16 +29,16 @@ class DX12Wrapper {
 	//
 	// DXGI
 	//
-	ComPtr < IDXGIFactory4> _dxgiFactory = nullptr;
-	ComPtr < IDXGISwapChain4> _swapchain = nullptr;
+	ComPtr<IDXGIFactory4> _dxgiFactory = nullptr;
+	ComPtr<IDXGISwapChain4> _swapchain = nullptr;
 	
 	//
 	// DirectX 12
 	//
-	ComPtr< ID3D12Device> _dev = nullptr;
-	ComPtr < ID3D12CommandAllocator> _cmdAllocator = nullptr;
-	ComPtr < ID3D12GraphicsCommandList> _cmdList = nullptr;
-	ComPtr < ID3D12CommandQueue> _cmdQueue = nullptr;
+	ComPtr<ID3D12Device> _dev = nullptr;
+	ComPtr<ID3D12CommandAllocator> _cmdAllocator = nullptr;
+	ComPtr<ID3D12GraphicsCommandList> _cmdList = nullptr;
+	ComPtr<ID3D12CommandQueue> _cmdQueue = nullptr;
 
 	//
 	// Display
@@ -77,18 +79,24 @@ class DX12Wrapper {
 	float _fov = DirectX::XM_PI / 6;	// 30Åã
 
 	ComPtr<ID3D12Resource> _peraResource;
+	ComPtr<ID3D12Resource> _peraResource2;
 	ComPtr<ID3D12DescriptorHeap> _peraRTVHeap;
-	ComPtr<ID3D12DescriptorHeap> _peraSRVHeap;
+	ComPtr<ID3D12DescriptorHeap> _peraRegisterHeap;
 
 	ComPtr<ID3D12Resource> _peraVB;
 	D3D12_VERTEX_BUFFER_VIEW _peraVBV;
 
 	ComPtr<ID3D12PipelineState> _peraPipeline;
+	ComPtr<ID3D12PipelineState> _peraPipeline2;
 	ComPtr<ID3D12RootSignature> _peraRS;
+
+	ComPtr<ID3D12Resource> _bokehParamResource;
 
 	bool CreatePeraResourcesAndView ();
 	bool CreatePeraVertex ();
 	bool CreatePeraPipeline ();
+
+	bool CreateBokehParamResource ();
 
 	void Barrier (ID3D12Resource* p,
 				  D3D12_RESOURCE_STATES before,
