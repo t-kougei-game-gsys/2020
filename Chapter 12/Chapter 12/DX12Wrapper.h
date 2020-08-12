@@ -97,6 +97,13 @@ class DX12Wrapper {
 
 	bool CreateBokehParamResource ();
 
+	ComPtr<ID3D12DescriptorHeap> _effectSRVHeap;
+	ComPtr<ID3D12Resource> _effectTexBuffer;
+	bool CreateEffectBufferAndView ();
+
+	bool LoadPictureFromFile(std::string filepath, ComPtr<ID3D12Resource>& buff);
+	bool CreateTextureFromImageData (const DirectX::Image* img, ComPtr<ID3D12Resource>& buff, bool isDiscrete = false);
+
 	void Barrier (ID3D12Resource* p,
 				  D3D12_RESOURCE_STATES before,
 				  D3D12_RESOURCE_STATES after);

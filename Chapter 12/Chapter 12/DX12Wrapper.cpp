@@ -15,7 +15,7 @@ using namespace DirectX;
 
 namespace {
 
-	std::string GetTexturePathFromModelAndTexPath (const std::string& modelPath, const char* texPath) {
+	string GetTexturePathFromModelAndTexPath (const std::string& modelPath, const char* texPath) {
 		int pathIndex1 = modelPath.rfind ('/');
 		int pathIndex2 = modelPath.rfind ('\\');
 		auto pathIndex = max (pathIndex1, pathIndex2);
@@ -23,14 +23,12 @@ namespace {
 		return folderPath + texPath;
 	}
 
-	string
-		GetExtension (const std::string& path) {
+	string GetExtension (const std::string& path) {
 		int idx = path.rfind ('.');
 		return path.substr (idx + 1, path.length () - idx - 1);
 	}
 
-	wstring
-		GetExtension (const std::wstring& path) {
+	wstring GetExtension (const std::wstring& path) {
 		int idx = path.rfind (L'.');
 		return path.substr (idx + 1, path.length () - idx - 1);
 	}
@@ -44,8 +42,7 @@ namespace {
 		return ret;
 	}
 
-	std::wstring
-		GetWideStringFromString (const std::string& str) {
+	std::wstring GetWideStringFromString (const std::string& str) {
 		auto num1 = MultiByteToWideChar (CP_ACP,
 										 MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
 										 str.c_str (), -1, nullptr, 0);
@@ -505,6 +502,11 @@ bool DX12Wrapper::Init () {
 		return false;
 	}
 
+	if (!CreateEffectBufferAndView ()) {
+		assert (0);
+		return false;
+	}
+
 	if (!CreatePeraResourcesAndView ()) {
 		assert (0);
 		return false;
@@ -660,7 +662,7 @@ bool DX12Wrapper::CreatePeraPipeline () {
 	gpsDesc.SampleDesc.Quality = 0;
 	gpsDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-	D3D12_DESCRIPTOR_RANGE range[2] = {};
+	D3D12_DESCRIPTOR_RANGE range[3] = {};
 	range[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	range[0].BaseShaderRegister = 0;
 	range[0].NumDescriptors = 1;
@@ -669,9 +671,9 @@ bool DX12Wrapper::CreatePeraPipeline () {
 	range[1].BaseShaderRegister = 0;
 	range[1].NumDescriptors = 1;
 
-	//range[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	//range[2].BaseShaderRegister = 1;
-	//range[2].NumDescriptors = 1;
+	range[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	range[2].BaseShaderRegister = 1;
+	range[2].NumDescriptors = 1;
 
 	D3D12_ROOT_PARAMETER rp[3] = {};
 	rp[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -684,15 +686,15 @@ bool DX12Wrapper::CreatePeraPipeline () {
 	rp[1].DescriptorTable.pDescriptorRanges = &range[1];
 	rp[1].DescriptorTable.NumDescriptorRanges = 1;
 
-	//rp[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	//rp[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	//rp[2].DescriptorTable.pDescriptorRanges = &range[2];
-	//rp[2].DescriptorTable.NumDescriptorRanges = 1;
+	rp[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rp[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rp[2].DescriptorTable.pDescriptorRanges = &range[2];
+	rp[2].DescriptorTable.NumDescriptorRanges = 1;
 
 	D3D12_STATIC_SAMPLER_DESC sampler = CD3DX12_STATIC_SAMPLER_DESC (0);
 
 	D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
-	rsDesc.NumParameters = 2;
+	rsDesc.NumParameters = 3;
 	rsDesc.pParameters = rp;
 	rsDesc.NumStaticSamplers = 1;
 	rsDesc.pStaticSamplers = &sampler;
@@ -967,12 +969,16 @@ void DX12Wrapper::Draw (shared_ptr<PMDRenderer> renderer) {
 	auto handle = _peraRegisterHeap->GetGPUDescriptorHandleForHeapStart ();
 	_cmdList->SetGraphicsRootDescriptorTable (0, handle);
 	// use rtv_2 (srv_2)
-	handle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 2;
+	handle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	handle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	_cmdList->SetGraphicsRootDescriptorTable (1, handle);
 	_cmdList->SetPipelineState (_peraPipeline2.Get ());
 	_cmdList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-
 	_cmdList->IASetVertexBuffers (0, 1, &_peraVBV);
+
+	_cmdList->SetDescriptorHeaps (1, _effectSRVHeap.GetAddressOf ());
+	_cmdList->SetGraphicsRootDescriptorTable (2, _effectSRVHeap->GetGPUDescriptorHandleForHeapStart ());
+
 	_cmdList->DrawInstanced (4, 1, 0, 0);
 }
 
@@ -1010,6 +1016,193 @@ void DX12Wrapper::WaitForCommandQueue () {
 		WaitForSingleObject (event, INFINITE);
 		CloseHandle (event);
 	}
+}
+
+bool DX12Wrapper::CreateEffectBufferAndView () {
+	if (!LoadPictureFromFile ("normal/crack_n.png", _effectTexBuffer)) {
+		return false;
+	}
+
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	heapDesc.NumDescriptors = 1;
+	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;	
+	
+	auto result = _dev->CreateDescriptorHeap (
+		&heapDesc,
+		IID_PPV_ARGS (&_effectSRVHeap)
+	);
+
+	if (FAILED (result)) {
+		assert (0);
+		return false;
+	}
+
+	auto desc = _effectTexBuffer->GetDesc ();
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Format = desc.Format;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	_dev->CreateShaderResourceView (
+		_effectTexBuffer.Get (),
+		&srvDesc,
+		_effectSRVHeap->GetCPUDescriptorHandleForHeapStart ()
+	);
+}
+
+bool DX12Wrapper::LoadPictureFromFile (string filepath, ComPtr<ID3D12Resource>& buff) {
+	auto it = _textureTable.find (filepath);
+	if (it != _textureTable.end ()) {
+		buff = _textureTable[filepath];
+		return true;
+	}
+
+	TexMetadata metadata = {};
+	ScratchImage scratchImg = {};
+	HRESULT result = S_OK;
+
+	bool isDXT = false;
+	auto ext = GetExtension (filepath);
+	wstring wPath = GetWideStringFromString (filepath);
+	if (ext == "tga") {
+		result = LoadFromTGAFile (wPath.c_str (),
+								  &metadata,
+								  scratchImg);
+	} else if (ext == "dds") {
+		result = LoadFromDDSFile (wPath.c_str (), DDS_FLAGS_NONE,
+								  &metadata,
+								  scratchImg);
+		isDXT = true;
+	} else {
+		result = LoadFromWICFile (wPath.c_str (),
+								  WIC_FLAGS_NONE,
+								  &metadata,
+								  scratchImg);
+	}
+	assert (SUCCEEDED (result));
+	if (FAILED (result)) {
+		return false;
+	}
+	auto img = scratchImg.GetImage (0, 0, 0);
+
+	bool isDescrete = true;
+
+	if (!CreateTextureFromImageData (img, buff, isDescrete)) {
+		return false;
+	}
+
+	if (!isDescrete) {
+		result = buff->WriteToSubresource (0,
+										   nullptr,
+										   img->pixels,
+										   img->rowPitch,
+										   img->slicePitch);
+	} else {
+		D3D12_HEAP_PROPERTIES heapProp = CD3DX12_HEAP_PROPERTIES (D3D12_HEAP_TYPE_UPLOAD);
+
+		D3D12_RESOURCE_DESC resDesc = CD3DX12_RESOURCE_DESC::Buffer (
+			D3D::AligmentedValue (img->rowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) * img->height);
+		Microsoft::WRL::ComPtr<ID3D12Resource> internalBuffer = nullptr;
+		result = _dev->CreateCommittedResource (&heapProp,
+												D3D12_HEAP_FLAG_NONE,
+												&resDesc,
+												D3D12_RESOURCE_STATE_GENERIC_READ,
+												nullptr,
+												IID_PPV_ARGS (internalBuffer.ReleaseAndGetAddressOf ()));
+		assert (SUCCEEDED (result));
+		if (FAILED (result)) {
+			return false;
+		}
+		uint8_t* mappedInternal = nullptr;
+		internalBuffer->Map (0, nullptr, (void**)&mappedInternal);
+		auto address = img->pixels;
+		uint32_t height = isDXT ? img->height / 4 : img->height;
+		for (int i = 0; i < height; ++i) {
+			copy_n (address, img->rowPitch, mappedInternal);
+			address += img->rowPitch;
+			mappedInternal += D3D::AligmentedValue (img->rowPitch,
+											   D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+		}
+		internalBuffer->Unmap (0, nullptr);
+
+		D3D12_TEXTURE_COPY_LOCATION src = {}, dst = {};
+		src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+		src.pResource = internalBuffer.Get ();
+		src.PlacedFootprint.Offset = 0;
+		src.PlacedFootprint.Footprint.Width = img->width;
+		src.PlacedFootprint.Footprint.Height = img->height;
+		src.PlacedFootprint.Footprint.RowPitch =
+			D3D::AligmentedValue (img->rowPitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+		src.PlacedFootprint.Footprint.Depth = metadata.depth;
+		src.PlacedFootprint.Footprint.Format = img->format;
+
+		dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		dst.SubresourceIndex = 0;
+		dst.pResource = buff.Get ();
+
+		_cmdList->CopyTextureRegion (&dst, 0, 0, 0, &src, nullptr);
+
+		Barrier (buff.Get (), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		_cmdList->Close ();
+		ID3D12CommandList* cmds[] = {_cmdList.Get ()};
+		_cmdQueue->ExecuteCommandLists (1, cmds);
+		WaitForCommandQueue ();
+		_cmdAllocator->Reset ();
+		_cmdList->Reset (_cmdAllocator.Get (), nullptr);
+	}
+
+	assert (SUCCEEDED (result));
+	if (FAILED (result)) {
+		return false;
+	}
+
+	_textureTable[filepath] = buff;
+
+	return SUCCEEDED (result);
+}
+
+bool DX12Wrapper::CreateTextureFromImageData (const DirectX::Image* img, ComPtr<ID3D12Resource>& buff, bool isDiscrete) {
+	D3D12_HEAP_PROPERTIES heapprop = {};
+
+	if (isDiscrete) {
+		heapprop = CD3DX12_HEAP_PROPERTIES (D3D12_HEAP_TYPE_DEFAULT);
+	} else {
+		heapprop.Type = D3D12_HEAP_TYPE_CUSTOM;
+		heapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+		heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+		heapprop.CreationNodeMask = 0;
+		heapprop.VisibleNodeMask = 0;
+	}
+
+	//最終書き込み先リソースの設定
+	D3D12_RESOURCE_DESC resdesc =
+		CD3DX12_RESOURCE_DESC::Tex2D (img->format, img->width, img->height);
+
+	auto result = S_OK;
+	if (isDiscrete) {
+		result = _dev->CreateCommittedResource (&heapprop,
+												D3D12_HEAP_FLAG_NONE,
+												&resdesc,
+												D3D12_RESOURCE_STATE_COPY_DEST,
+												nullptr,
+												IID_PPV_ARGS (buff.ReleaseAndGetAddressOf ()));
+	} else {
+		result = _dev->CreateCommittedResource (&heapprop,
+												D3D12_HEAP_FLAG_NONE,
+												&resdesc,
+												D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+												nullptr,
+												IID_PPV_ARGS (buff.ReleaseAndGetAddressOf ()));
+	}
+
+	assert (SUCCEEDED (result));
+	if (FAILED (result)) {
+		return false;
+	}
+
+	return true;
 }
 
 #pragma endregion
