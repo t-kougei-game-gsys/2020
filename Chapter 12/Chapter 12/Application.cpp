@@ -67,11 +67,8 @@ void DisplayFPS (float deltaTime) {
 	}
 }
 
-SIZE Application::GetWindowSize ()const {
-	SIZE ret;
-	ret.cx = window_width;
-	ret.cy = window_height;
-	return ret;
+Size Application::GetWindowSize ()const {
+	return Size (window_width, window_height);
 }
 
 void Application::Run () {

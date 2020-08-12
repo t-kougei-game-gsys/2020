@@ -17,6 +17,13 @@ class DX12Wrapper;
 class PMDRenderer;
 class PMDActor;
 
+struct Size {
+	int width;
+	int height;
+	Size () {}
+	Size (int w, int h) :width (w), height (h) {}
+};
+
 class Application {
 private:
 	WNDCLASSEX _windowClass;
@@ -40,7 +47,7 @@ public:
 
 	void Terminate ();
 
-	SIZE GetWindowSize () const;
+	Size GetWindowSize () const;
 
 	~Application ();
 };

@@ -51,7 +51,7 @@ float4 main (Output input) : SV_TARGET {
 	float dy = 1.0f / h;
 	float4 ret = float4 (0, 0, 0, 0);
 
-	int value = 2;
+	// int value = 2;
 
 	//
 	// ‚Ú‚©‚µˆ—

@@ -22,7 +22,6 @@ class DX12Wrapper {
 		DirectX::XMFLOAT3 eye;
 	};
 
-	SIZE _winSize;
 	template<typename T>
 	using ComPtr = Microsoft::WRL::ComPtr<T>;
 	
@@ -47,8 +46,8 @@ class DX12Wrapper {
 	std::vector<ID3D12Resource*> _backBuffers;
 	ComPtr<ID3D12DescriptorHeap> _rtvHeap = nullptr;
 	ComPtr<ID3D12DescriptorHeap> _dsvHeap = nullptr;
-	std::unique_ptr<D3D12_VIEWPORT> _viewport;
-	std::unique_ptr<D3D12_RECT> _scissorRect;
+	//std::unique_ptr<D3D12_VIEWPORT> _viewport;
+	//std::unique_ptr<D3D12_RECT> _scissorRect;
 
 	//
 	// Scene Data
