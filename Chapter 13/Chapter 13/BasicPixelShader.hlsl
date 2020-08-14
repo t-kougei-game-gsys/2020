@@ -9,6 +9,10 @@ SamplerState smp : register(s0);
 SamplerState smpToon : register(s1);
 
 float4 main (Output input) : SV_TARGET {
+	if (input.instNo == 1) {
+		return float4 (0, 0, 0, 1);
+	}
+
 	float3 light = normalize (float3 (1, -1, 1));
 	float3 lightColor = float3(1, 1, 1);
 

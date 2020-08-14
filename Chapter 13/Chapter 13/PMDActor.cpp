@@ -794,7 +794,9 @@ void PMDActor::Draw () {
 	auto cbvsrvIncSize = _dx12.Device ()->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 5;
 	for (auto& m : _materials) {
 		_dx12.CommandList ()->SetGraphicsRootDescriptorTable (2, materialH);
-		_dx12.CommandList ()->DrawIndexedInstanced (m.indicesNum, 1, idxOffset, 0, 0);
+		// chapter 13, change the instanceCount to 2 (before is 1)
+		// draw same actor to render shadow
+		_dx12.CommandList ()->DrawIndexedInstanced (m.indicesNum, 2, idxOffset, 0, 0);
 		materialH.ptr += cbvsrvIncSize;
 		idxOffset += m.indicesNum;
 	}

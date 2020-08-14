@@ -15,6 +15,8 @@ class DX12Wrapper {
 	struct SceneData {
 		DirectX::XMMATRIX view;
 		DirectX::XMMATRIX proj;
+		// Chapter 13
+		DirectX::XMMATRIX shadow;
 		DirectX::XMFLOAT3 eye;
 	};
 
@@ -74,6 +76,12 @@ class DX12Wrapper {
 	HRESULT CreateSceneView ();
 	void CreateTextureLoaderTable ();
 	ID3D12Resource* CreateTextureFromFile (const char* texPath);
+
+#pragma region Chapter 13
+
+	DirectX::XMFLOAT3 _parallelLightVec;
+
+#pragma endregion
 
 public:
 	DX12Wrapper (HWND hwnd);

@@ -69,7 +69,7 @@ namespace {
 
 }
 
-DX12Wrapper::DX12Wrapper (HWND hwnd) {
+DX12Wrapper::DX12Wrapper (HWND hwnd) : _parallelLightVec (1, -1, 1) {
 #ifdef _DEBUG
 	EnableDebugLayer ();
 #endif
@@ -370,6 +370,14 @@ HRESULT DX12Wrapper::CreateSceneView () {
 													   1000.0f
 	);
 	_mappedSceneData->eye = eye;
+	
+#pragma region Chapter 13
+	XMFLOAT4 planeVec (0, 1, 0, 0);
+	_mappedSceneData->shadow = XMMatrixShadow (
+		XMLoadFloat4 (&planeVec),
+		-XMLoadFloat3 (&_parallelLightVec)
+	);
+#pragma endregion
 
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
 	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
