@@ -93,18 +93,23 @@ void Application::Run () {
 
 		DisplayFPS (deltaTime);
 
-		_dx12->BeginDraw ();
-
-		_dx12->CommandList ()->SetPipelineState (_pmdRenderer->GetPipelineState ());
-		
-		_dx12->CommandList ()->SetGraphicsRootSignature (_pmdRenderer->GetRootSignature ());
-
 		_dx12->CommandList ()->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		_pmdRenderer->PreDrawFromLight ();
 
 		_dx12->SetScene ();
 
+		_dx12->PreDrawShadow ();
+
 		_pmdActor->Update ();
-		_pmdActor->Draw ();
+		_pmdActor->Draw (true);
+
+		_pmdRenderer->PreDrawNormal ();
+		_dx12->PreDrawNormal ();
+		_pmdActor->Draw (false);
+
+		//_dx12->Draw ();
+		//_dx12->PostDraw ();
 
 		_dx12->EndDraw ();
 

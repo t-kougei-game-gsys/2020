@@ -32,6 +32,12 @@ private:
 	
 	bool CheckShaderCompileResult (HRESULT hr, ID3DBlob* error = nullptr);
 
+#pragma region Chapter 13
+
+	ComPtr<ID3D12PipelineState> _ppShadow = nullptr;
+
+#pragma endregion
+
 public:
 	PMDRenderer (DX12Wrapper& dx12);
 	~PMDRenderer ();
@@ -39,5 +45,13 @@ public:
 	void Draw ();
 	ID3D12PipelineState* GetPipelineState ();
 	ID3D12RootSignature* GetRootSignature ();
+
+#pragma region Chapter 13
+
+	void PreDrawFromLight ();
+	void PreDrawNormal ();
+
+#pragma endregion
+
 };
 

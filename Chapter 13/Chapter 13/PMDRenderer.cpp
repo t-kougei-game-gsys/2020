@@ -200,27 +200,65 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD () {
 		assert (SUCCEEDED (hr));
 	}
 
+	// Chapter 13
+
+	hr = D3DCompileFromFile (
+		L"BasicVertexShader.hlsl",
+		nullptr,
+		D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		"ShadowVS", "vs_5_0", 0, 0,
+		vsBlob.ReleaseAndGetAddressOf (),
+		errorBlob.ReleaseAndGetAddressOf ()
+	);
+
+	if (FAILED (hr)) {
+		assert (0);
+		return hr;
+	}
+
+	gpipeline.VS = CD3DX12_SHADER_BYTECODE (vsBlob.Get ());
+	gpipeline.PS.BytecodeLength = 0;
+	gpipeline.PS.pShaderBytecode = nullptr;
+	gpipeline.NumRenderTargets = 0;
+	gpipeline.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+	hr = _dx12.Device ()->CreateGraphicsPipelineState (&gpipeline, IID_PPV_ARGS (_ppShadow.ReleaseAndGetAddressOf ()));
+
+	if (FAILED (hr)) {
+		assert (0);
+		return hr;
+	}
+
 	return hr;
 }
 
 HRESULT PMDRenderer::CreateRootSignature () {
-	CD3DX12_DESCRIPTOR_RANGE  descTblRanges[4] = {};
+	CD3DX12_DESCRIPTOR_RANGE  descTblRanges[5] = {};
 	descTblRanges[0].Init (D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
 	descTblRanges[1].Init (D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
 	descTblRanges[2].Init (D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2);
 	descTblRanges[3].Init (D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 0);
+	descTblRanges[4].Init (D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4);
 
-	CD3DX12_ROOT_PARAMETER rootParams[3] = {};
+	CD3DX12_ROOT_PARAMETER rootParams[4] = {};
 	rootParams[0].InitAsDescriptorTable (1, &descTblRanges[0]);
 	rootParams[1].InitAsDescriptorTable (1, &descTblRanges[1]);
 	rootParams[2].InitAsDescriptorTable (2, &descTblRanges[2]);
+	rootParams[3].InitAsDescriptorTable (1, &descTblRanges[4]);
 
-	CD3DX12_STATIC_SAMPLER_DESC samplerDescs[2] = {};
+	CD3DX12_STATIC_SAMPLER_DESC samplerDescs[3] = {};
 	samplerDescs[0].Init (0);
 	samplerDescs[1].Init (1, D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+	samplerDescs[2] = samplerDescs[0];
+	samplerDescs[2].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDescs[2].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDescs[2].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDescs[2].ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+	samplerDescs[2].Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+	samplerDescs[2].MaxAnisotropy = 1;
+	samplerDescs[2].ShaderRegister = 2;
 
 	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
-	rootSignatureDesc.Init (3, rootParams, 2, samplerDescs, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	rootSignatureDesc.Init (4, rootParams, 3, samplerDescs, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	ComPtr<ID3DBlob> rootSigBlob = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -247,3 +285,19 @@ ID3D12PipelineState* PMDRenderer::GetPipelineState () {
 ID3D12RootSignature* PMDRenderer::GetRootSignature () {
 	return _rootSig.Get ();
 }
+
+#pragma region Chapter 13
+
+void PMDRenderer::PreDrawFromLight () {
+	auto cmdlist = _dx12.CommandList ();
+	cmdlist->SetPipelineState (_ppShadow.Get ());
+	cmdlist->SetGraphicsRootSignature (_rootSig.Get ());
+}
+
+void PMDRenderer::PreDrawNormal () {
+	auto cmdlist = _dx12.CommandList ();
+	cmdlist->SetPipelineState (_pipeline.Get ());
+	cmdlist->SetGraphicsRootSignature (_rootSig.Get ());
+}
+
+#pragma endregion

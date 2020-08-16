@@ -157,6 +157,12 @@ private:
 	HRESULT CreateTransformView ();
 	HRESULT LoadPMDFile (const char* path);
 
+#pragma region Chapter 13
+
+	unsigned int _idxNum;
+
+#pragma endregion
+
 public:
 	PMDActor (const char* filePath, PMDRenderer& renderer);
 	~PMDActor ();
@@ -164,7 +170,7 @@ public:
 	PMDActor* Clone ();
 	
 	void Update ();
-	void Draw ();
+	void Draw (bool isShadow);
 
 	void LoadVMDFile (const char* filePath, const char* name);
 	void PlayAnimation ();

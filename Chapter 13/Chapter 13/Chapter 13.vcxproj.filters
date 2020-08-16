@@ -58,9 +58,18 @@
     <FxCompile Include="BasicVertexShader.hlsl">
       <Filter>資源檔</Filter>
     </FxCompile>
+    <FxCompile Include="DrawDSVVS.hlsl">
+      <Filter>資源檔</Filter>
+    </FxCompile>
+    <FxCompile Include="DrawDSVPS.hlsl">
+      <Filter>資源檔</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="BasicShaderHeader.hlsli">
+      <Filter>資源檔</Filter>
+    </None>
+    <None Include="DrawDSVHeader.hlsli">
       <Filter>資源檔</Filter>
     </None>
   </ItemGroup>

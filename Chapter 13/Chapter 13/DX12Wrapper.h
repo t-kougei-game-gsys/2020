@@ -17,6 +17,7 @@ class DX12Wrapper {
 		DirectX::XMMATRIX proj;
 		// Chapter 13
 		DirectX::XMMATRIX shadow;
+		DirectX::XMMATRIX lightCamera;
 		DirectX::XMFLOAT3 eye;
 	};
 
@@ -65,7 +66,7 @@ class DX12Wrapper {
 	// Load Texture Lambda
 	//
 	using LoadLambda_t = std::function<HRESULT (const std::wstring & path, DirectX::TexMetadata*, DirectX::ScratchImage&)>;
-	std::map < std::string, LoadLambda_t> _loadLambdaTable;
+	std::map<std::string, LoadLambda_t> _loadLambdaTable;
 	std::unordered_map<std::string, ComPtr<ID3D12Resource>> _textureTable;
 
 	HRESULT	CreateFinalRenderTargets ();
@@ -79,7 +80,21 @@ class DX12Wrapper {
 
 #pragma region Chapter 13
 
+	ComPtr<ID3D12DescriptorHeap> _depthSRVHeap;
+
+	ComPtr<ID3D12Resource> _vb;
+	D3D12_VERTEX_BUFFER_VIEW _vbv;
+
+	ComPtr<ID3D12Resource> _lightDepthBuffer;
+
 	DirectX::XMFLOAT3 _parallelLightVec;
+
+	ComPtr<ID3D12RootSignature> _rs;
+	ComPtr<ID3D12PipelineState> _pp;
+
+	void CreateDepthSRVHeap ();
+	void CreateVertex ();
+	void CreatePipeline ();
 
 #pragma endregion
 
@@ -88,7 +103,6 @@ public:
 	~DX12Wrapper ();
 
 	void Update ();
-	void BeginDraw ();
 	void EndDraw ();
 
 	ComPtr<ID3D12Resource> GetTextureByPath (const char* texPath);
@@ -98,4 +112,14 @@ public:
 	ComPtr<IDXGISwapChain4> Swapchain ();
 
 	void SetScene ();
+
+#pragma region Chapter 13
+
+	void PreDrawShadow ();
+	void PreDrawNormal ();
+	void Draw ();
+	void PostDraw ();
+
+#pragma endregion
+
 };

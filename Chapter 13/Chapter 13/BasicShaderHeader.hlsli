@@ -5,6 +5,7 @@ struct Output {
 	float4 vnormal : NORMAL1;
 	float2 uv : TEXCOORD;
 	float3 ray : VECTOR;
+	float4 t_pos : TPOS;
 	uint instNo : SV_InstanceID;
 };
 

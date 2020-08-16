@@ -139,9 +139,8 @@ HRESULT PMDActor::LoadPMDFile (const char* path) {
 	vector<unsigned char> vertices (vertNum* PMDVERTEX_SIZE);
 	fread (vertices.data (), vertices.size (), 1, fp);
 	
-	unsigned int idxNum;
-	fread (&idxNum, sizeof (idxNum), 1, fp);
-	vector<unsigned short> indices (idxNum);
+	fread (&_idxNum, sizeof (_idxNum), 1, fp);
+	vector<unsigned short> indices (_idxNum);
 	fread (indices.data (), indices.size () * sizeof (indices[0]), 1, fp);
 
 	unsigned int materialNum;
@@ -776,7 +775,7 @@ void PMDActor::Update () {
 	MotionUpdate ();
 }
 
-void PMDActor::Draw () {
+void PMDActor::Draw (bool isShadow) {
 	_dx12.CommandList ()->IASetVertexBuffers (0, 1, &_vbView);
 	_dx12.CommandList ()->IASetIndexBuffer (&_ibView);
 
@@ -792,13 +791,18 @@ void PMDActor::Draw () {
 	unsigned int idxOffset = 0;
 
 	auto cbvsrvIncSize = _dx12.Device ()->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 5;
-	for (auto& m : _materials) {
-		_dx12.CommandList ()->SetGraphicsRootDescriptorTable (2, materialH);
-		// chapter 13, change the instanceCount to 2 (before is 1)
-		// draw same actor to render shadow
-		_dx12.CommandList ()->DrawIndexedInstanced (m.indicesNum, 2, idxOffset, 0, 0);
-		materialH.ptr += cbvsrvIncSize;
-		idxOffset += m.indicesNum;
+
+	if (isShadow) {
+		_dx12.CommandList ()->DrawIndexedInstanced (_idxNum, 1, 0, 0, 0);
+	} else {
+		for (auto& m : _materials) {
+			_dx12.CommandList ()->SetGraphicsRootDescriptorTable (2, materialH);
+			// chapter 13, change the instanceCount to 2 (before is 1)
+			// draw same actor to render shadow
+			_dx12.CommandList ()->DrawIndexedInstanced (m.indicesNum, 2, idxOffset, 0, 0);
+			materialH.ptr += cbvsrvIncSize;
+			idxOffset += m.indicesNum;
+		}
 	}
 }
 
