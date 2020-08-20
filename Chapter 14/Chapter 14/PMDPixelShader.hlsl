@@ -1,4 +1,4 @@
-#include "BasicShaderHeader.hlsli"
+#include "PMDShaderHeader.hlsli"
 
 Texture2D<float4> tex : register(t0);
 Texture2D<float4> sph : register(t1);
@@ -8,7 +8,7 @@ Texture2D<float4> toon : register(t3);
 SamplerState smp : register(s0);
 SamplerState smpToon : register(s1);
 
-float4 main (Output input) : SV_TARGET {
+PS_Output main (Output input) {
 	float3 light = normalize (float3 (1, -1, 1));
 	float3 lightColor = float3(1, 1, 1);
 
@@ -23,12 +23,21 @@ float4 main (Output input) : SV_TARGET {
 
 	float4 texColor = tex.Sample (smp, input.uv);
 
-	return saturate (
-				toonDif
-				* diffuse
-				* texColor
-				* sph.Sample (smp, sphereMapUV))
-				+ saturate (spa.Sample (smp, sphereMapUV) * texColor
-				+ float4 (specularB * specular.rgb, 1))
-				+ float4 (ambient * texColor * 0.5, 1);
+	float4 ret = saturate (
+		toonDif *
+		diffuse *
+		texColor *
+		sph.Sample (smp, sphereMapUV)) +
+		saturate (spa.Sample (smp, sphereMapUV) *
+		texColor +
+		float4 (specularB * specular.rgb, 1)) +
+		float4 (ambient * texColor * 0.5, 1);
+
+	PS_Output output;
+
+	output.col = ret;
+	output.normal.rgb = float3 ((input.normal.xyz + 1.0f) / 2.0f);
+	output.normal.a = 1;
+
+	return output;
 }

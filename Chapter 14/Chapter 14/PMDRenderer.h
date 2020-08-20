@@ -39,5 +39,12 @@ public:
 	void Draw ();
 	ID3D12PipelineState* GetPipelineState ();
 	ID3D12RootSignature* GetRootSignature ();
+
+#pragma region Chapter 14
+
+	void PreDraw ();
+
+#pragma endregion
+
 };
 

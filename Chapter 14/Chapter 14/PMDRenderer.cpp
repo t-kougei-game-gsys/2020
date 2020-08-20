@@ -118,7 +118,7 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD () {
 	ComPtr<ID3DBlob> psBlob = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
 
-	auto hr = D3DCompileFromFile (L"BasicVertexShader.hlsl",
+	auto hr = D3DCompileFromFile (L"PMDVertexShader.hlsl",
 									  nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
 									  "main", "vs_5_0",
 									  D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
@@ -129,7 +129,7 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD () {
 		return hr;
 	}
 
-	hr = D3DCompileFromFile (L"BasicPixelShader.hlsl",
+	hr = D3DCompileFromFile (L"PMDPixelShader.hlsl",
 								 nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
 								 "main", "ps_5_0",
 								 D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION,
@@ -190,8 +190,12 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD () {
 	gpipeline.InputLayout.NumElements = _countof (inputLayout);
 	gpipeline.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
 	gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	gpipeline.NumRenderTargets = 1;
+
+	// Chapter 14
+	gpipeline.NumRenderTargets = 2;
 	gpipeline.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpipeline.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
 	gpipeline.SampleDesc.Count = 1;
 	gpipeline.SampleDesc.Quality = 0;
 	hr = _dx12.Device ()->CreateGraphicsPipelineState (&gpipeline, IID_PPV_ARGS (_pipeline.ReleaseAndGetAddressOf ()));
@@ -247,3 +251,14 @@ ID3D12PipelineState* PMDRenderer::GetPipelineState () {
 ID3D12RootSignature* PMDRenderer::GetRootSignature () {
 	return _rootSig.Get ();
 }
+
+#pragma region Chapter 14
+
+void PMDRenderer::PreDraw () {
+	auto cmdlist = _dx12.CommandList ();
+	cmdlist->SetPipelineState (_pipeline.Get ());
+	cmdlist->SetGraphicsRootSignature (_rootSig.Get ());
+	cmdlist->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+#pragma endregion

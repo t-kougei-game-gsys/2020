@@ -7,6 +7,11 @@ struct Output {
 	float3 ray : VECTOR;
 };
 
+struct PS_Output {
+	float4 col : SV_TARGET0;		// color
+	float4 normal : SV_TARGET1;		// uv
+};
+
 cbuffer Material : register(b2) {
 	// alpha in float4
 	float4 diffuse;

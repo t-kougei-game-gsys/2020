@@ -9,6 +9,7 @@
 #include <string>
 #include <functional>
 #include <memory>
+#include <array>
 
 class DX12Wrapper {
 
@@ -25,16 +26,16 @@ class DX12Wrapper {
 	//
 	// DXGI
 	//
-	ComPtr < IDXGIFactory4> _dxgiFactory = nullptr;
-	ComPtr < IDXGISwapChain4> _swapchain = nullptr;
+	ComPtr<IDXGIFactory4> _dxgiFactory = nullptr;
+	ComPtr<IDXGISwapChain4> _swapchain = nullptr;
 	
 	//
 	// DirectX 12
 	//
-	ComPtr< ID3D12Device> _dev = nullptr;
-	ComPtr < ID3D12CommandAllocator> _cmdAllocator = nullptr;
-	ComPtr < ID3D12GraphicsCommandList> _cmdList = nullptr;
-	ComPtr < ID3D12CommandQueue> _cmdQueue = nullptr;
+	ComPtr<ID3D12Device> _dev = nullptr;
+	ComPtr<ID3D12CommandAllocator> _cmdAllocator = nullptr;
+	ComPtr<ID3D12GraphicsCommandList> _cmdList = nullptr;
+	ComPtr<ID3D12CommandQueue> _cmdQueue = nullptr;
 
 	//
 	// Display
@@ -75,12 +76,29 @@ class DX12Wrapper {
 	void CreateTextureLoaderTable ();
 	ID3D12Resource* CreateTextureFromFile (const char* texPath);
 
+#pragma region Chapater 14
+
+	std::array<ComPtr<ID3D12Resource>, 2> _peraResources;
+	ComPtr<ID3D12DescriptorHeap> _peraRTVHeap;
+	ComPtr<ID3D12DescriptorHeap> _peraSRVHeap;
+
+	ComPtr<ID3D12Resource> _vb;
+	D3D12_VERTEX_BUFFER_VIEW _vbv;
+
+	ComPtr<ID3D12RootSignature> _rs;
+	ComPtr<ID3D12PipelineState> _pp;
+
+	void CreateRTVAndSRVHeap ();
+	void CreateVertex ();
+	void CreatePipeline ();
+
+#pragma endregion
+
 public:
 	DX12Wrapper (HWND hwnd);
 	~DX12Wrapper ();
 
 	void Update ();
-	void BeginDraw ();
 	void EndDraw ();
 
 	ComPtr<ID3D12Resource> GetTextureByPath (const char* texPath);
@@ -90,4 +108,15 @@ public:
 	ComPtr<IDXGISwapChain4> Swapchain ();
 
 	void SetScene ();
+
+#pragma region Chapter 14
+
+	void PrePeraDraw ();
+	void PostPeraDraw ();
+
+	void PreDraw ();
+	void Draw ();
+
+#pragma endregion
+
 };

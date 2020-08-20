@@ -15,10 +15,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="BasicPixelShader.hlsl">
+    <FxCompile Include="PMDPixelShader.hlsl">
       <Filter>資源檔</Filter>
     </FxCompile>
-    <FxCompile Include="BasicVertexShader.hlsl">
+    <FxCompile Include="PMDVertexShader.hlsl">
+      <Filter>資源檔</Filter>
+    </FxCompile>
+    <FxCompile Include="BasicVS.hlsl">
+      <Filter>資源檔</Filter>
+    </FxCompile>
+    <FxCompile Include="BasicPS.hlsl">
       <Filter>資源檔</Filter>
     </FxCompile>
   </ItemGroup>
@@ -60,7 +66,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="BasicShaderHeader.hlsli">
+    <None Include="PMDShaderHeader.hlsli">
+      <Filter>資源檔</Filter>
+    </None>
+    <None Include="BasicHeader.hlsli">
       <Filter>資源檔</Filter>
     </None>
   </ItemGroup>
