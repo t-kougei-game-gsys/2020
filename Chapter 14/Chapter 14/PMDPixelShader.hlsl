@@ -21,23 +21,28 @@ PS_Output main (Output input) {
 	float2 sphereMapUV = input.vnormal.xy;
 	sphereMapUV = (sphereMapUV + float2(1, -1)) * float2(0.5, -0.5);
 
-	float4 texColor = tex.Sample (smp, input.uv);
+	float4 texCol = tex.Sample (smp, input.uv);
+	float4 sphCol = sph.Sample (smp, sphereMapUV);
+	float4 spaCol = spa.Sample (smp, sphereMapUV);
 
 	float4 ret = saturate (
 		toonDif *
 		diffuse *
-		texColor *
-		sph.Sample (smp, sphereMapUV)) +
-		saturate (spa.Sample (smp, sphereMapUV) *
-		texColor +
-		float4 (specularB * specular.rgb, 1)) +
-		float4 (ambient * texColor * 0.5, 1);
+		texCol *
+		sphCol) +
+		saturate (spaCol * texCol + float4 (specularB * specular.rgb, 1)) +
+		float4 (ambient * texCol * 0.5, 1);
 
 	PS_Output output;
 
 	output.col = ret;
 	output.normal.rgb = float3 ((input.normal.xyz + 1.0f) / 2.0f);
 	output.normal.a = 1;
+
+	// Deferred Shading
+	//output.col = float4 (spaCol + sphCol * texCol * diffuse);
+	//output.normal.rgb = float3 ((input.normal.xyz + 1.0f) / 2.0f);
+	//output.normal.a = 1;
 
 	return output;
 }

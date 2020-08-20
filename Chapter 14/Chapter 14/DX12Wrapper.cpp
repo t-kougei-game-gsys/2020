@@ -526,7 +526,10 @@ void DX12Wrapper::CreateRTVAndSRVHeap () {
 	}
 
 	// Create SRV heap
-	heapDesc.NumDescriptors = 2;
+	// 0: Color Texture
+	// 1: Normal Texture
+	// 2: Depth Texture
+	heapDesc.NumDescriptors = 3;
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	result = _dev->CreateDescriptorHeap (&heapDesc, IID_PPV_ARGS (_peraSRVHeap.ReleaseAndGetAddressOf ()));
@@ -542,6 +545,10 @@ void DX12Wrapper::CreateRTVAndSRVHeap () {
 		_dev->CreateShaderResourceView (res.Get (), &srvDesc, handle);
 		handle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	}
+
+	// Depth SRV
+	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	_dev->CreateShaderResourceView (_depthBuffer.Get (), &srvDesc, handle);
 }
 
 void DX12Wrapper::CreatePipeline () {
@@ -614,7 +621,7 @@ void DX12Wrapper::CreatePipeline () {
 	D3D12_DESCRIPTOR_RANGE range[1] = {};
 	range[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	range[0].BaseShaderRegister = 0;
-	range[0].NumDescriptors = 2;
+	range[0].NumDescriptors = 3;
 
 	//range[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	//range[1].BaseShaderRegister = 1;
@@ -727,11 +734,12 @@ void DX12Wrapper::PrePeraDraw () {
 	_cmdList->OMSetRenderTargets (2, rtvH, false, &dsvH);
 	_cmdList->ClearDepthStencilView (dsvH, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-	float clearColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+	float clearColor[] = {0.8f, 0.8f, 0.8f, 1.0f};
 	for (int i = 0; i < _countof (rtvH); i++) {
 		auto rt = rtvH[i];
 
 		if (i == 1) {
+			// normal
 			clearColor[0] = clearColor[1] = clearColor[2] = 0.0f;
 		}
 
