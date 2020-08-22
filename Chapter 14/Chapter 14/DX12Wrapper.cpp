@@ -116,6 +116,7 @@ DX12Wrapper::DX12Wrapper (HWND hwnd) {
 
 	// Chapter 14
 	CreateVertex ();
+	CreateBlurForDOFBuffer ();
 	CreateBloomResources ();
 	CreateRTVAndSRVHeap ();
 	CreatePipeline ();
@@ -477,6 +478,27 @@ ComPtr < IDXGISwapChain4> DX12Wrapper::Swapchain () {
 
 #pragma region Chapter 14
 
+void DX12Wrapper::CreateBlurForDOFBuffer () {
+	auto& bbuff = _backBuffers[0];
+	auto resDesc = bbuff->GetDesc ();
+	D3D12_HEAP_PROPERTIES heapProp = CD3DX12_HEAP_PROPERTIES (D3D12_HEAP_TYPE_DEFAULT);
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.Color[0] = clearValue.Color[1] = clearValue.Color[2] = 0.0f;
+	clearValue.Color[3] = 1.0f;
+	clearValue.Format = resDesc.Format;
+	resDesc.Width >>= 1;
+	HRESULT result = _dev->CreateCommittedResource (&heapProp,
+													D3D12_HEAP_FLAG_NONE,
+													&resDesc,
+													D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+													&clearValue,
+													IID_PPV_ARGS (_dofBuffer.ReleaseAndGetAddressOf ()));
+	if (FAILED(result)) {
+		assert (0);
+		return;
+	}
+}
+
 void DX12Wrapper::CreateBloomResources () {
 	HRESULT result;
 
@@ -723,6 +745,9 @@ void DX12Wrapper::CreatePipeline () {
 	}
 
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE (ps.Get ());
+	gpsDesc.NumRenderTargets = 2;
+	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpsDesc.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	result = _dev->CreateGraphicsPipelineState (
 		&gpsDesc,
 		IID_PPV_ARGS (_blurPP.ReleaseAndGetAddressOf ())
@@ -862,13 +887,17 @@ void DX12Wrapper::DrawShrinkTextureForBlur () {
 																		 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
 																		 D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	auto rtvHandle = _peraRTVHeap->GetCPUDescriptorHandleForHeapStart ();
+	auto rtvBaseHandle = _peraRTVHeap->GetCPUDescriptorHandleForHeapStart ();
 	auto srvHandle = _peraSRVHeap->GetGPUDescriptorHandleForHeapStart ();
 
 	auto rtvIncSize = _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	rtvHandle.ptr += rtvIncSize * 3;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandles[2] = {};
 
-	_cmdList->OMSetRenderTargets (1, &rtvHandle, false, nullptr);
+	rtvHandles[0].InitOffsetted (rtvBaseHandle, rtvIncSize * 4);
+	rtvHandles[1].InitOffsetted (rtvBaseHandle, rtvIncSize * 5);
+
+	_cmdList->OMSetRenderTargets (2, rtvHandles, false, nullptr);
+
 
 	srvHandle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 3;
 

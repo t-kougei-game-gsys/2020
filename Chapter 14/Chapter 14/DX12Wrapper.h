@@ -90,12 +90,14 @@ class DX12Wrapper {
 	ComPtr<ID3D12PipelineState> _blurPP;
 
 	std::array<ComPtr<ID3D12Resource>, 2> _bloomBuffers;
+	ComPtr<ID3D12Resource> _dofBuffer;
 
 	void CreateRTVAndSRVHeap ();
 	void CreateVertex ();
 	void CreatePipeline ();
 	
 	void CreateBloomResources ();
+	void CreateBlurForDOFBuffer ();
 
 #pragma endregion
 

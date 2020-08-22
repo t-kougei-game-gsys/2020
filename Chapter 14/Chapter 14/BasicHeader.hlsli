@@ -10,3 +10,8 @@ struct VS_Output {
 	float4 sv_pos : SV_POSITION;
 	float2 uv : TEXCOORD;
 };
+
+struct BlurOutput {
+	float4 highLum : SV_TARGET0;
+	float4 col : SV_TARGET1;
+};

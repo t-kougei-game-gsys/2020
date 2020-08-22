@@ -84,21 +84,50 @@ float4 main (VS_Output input) : SV_TARGET {
 	float dx = 1.0 / w;
 	float dy = 1.0 / h;
 
-	float4 bloomAccum = float4 (0, 0, 0, 0);
+	float2 nmXY = distTex.Sample (smp, input.uv).rg;
+	nmXY = (nmXY * 2.0f) - 1.0f;
+
+	float4 bloomAccum = float4(0, 0, 0, 0);
 	float2 uvSize = float2(1, 0.5);
 	float2 uvOfst = float2(0, 0);
-
 	for (int i = 0; i < 8; ++i) {
-		bloomAccum += Get5x5GaussianBlur (texShrink, smp, input.uv * uvSize + uvOfst, dx, dy, float4(uvOfst, uvOfst + uvSize));
+		bloomAccum += Get5x5GaussianBlur (texShrinkHighLum, smp, input.uv * uvSize + uvOfst, dx, dy, float4(uvOfst, uvOfst + uvSize));
 		uvOfst.y += uvSize.y;
 		uvSize *= 0.5f;
 	}
 
-	return tex.Sample (smp, input.uv) + Get5x5GaussianBlur (texHighLum, smp, input.uv, dx, dy, float4(uvOfst, uvOfst + uvSize)) + saturate (bloomAccum);
+	float depthDiff = abs (depthTex.Sample (smp, float2(0.5, 0.5)) - depthTex.Sample (smp, input.uv));
+	depthDiff = pow (depthDiff, 0.5f);
+	uvSize = float2(1, 0.5);
+	uvOfst = float2(0, 0);
+	float t = depthDiff * 8;
+	float no;
+	t = modf (t, no);
+	float4 retColor[2];
+	retColor[0] = tex.Sample (smp, input.uv);
+	if (no == 0.0f) {
+		retColor[1] = Get5x5GaussianBlur (texShrink, smp, input.uv * uvSize + uvOfst, dx, dy, float4(uvOfst, uvOfst + uvSize));
+	} else {
+		for (int i = 1; i <= 8; ++i) {
+			if (i - no < 0)continue;
+			retColor[i - no] = Get5x5GaussianBlur (texShrink, smp, input.uv * uvSize + uvOfst, dx, dy, float4(uvOfst, uvOfst + uvSize));
+			uvOfst.y += uvSize.y;
+			uvSize *= 0.5f;
+			if (i - no > 1) {
+				break;
+			}
+		}
+	}
+	return lerp (retColor[0], retColor[1], t);
 }
 
-float4 BlurPS (VS_Output input) : SV_Target {
+BlurOutput BlurPS (VS_Output input) {
 	float w, h, miplevels;
 	tex.GetDimensions (0, w, h, miplevels);
-	return Get5x5GaussianBlur (tex, smp, input.uv, 1.0 / w, 1.0 / h, float4 (0, 0, 1, 1));
+	float dx = 1.0 / w;
+	float dy = 1.0 / h;
+	BlurOutput ret;
+	ret.col = tex.Sample (smp, input.uv);
+	ret.highLum = Get5x5GaussianBlur (texHighLum, smp, input.uv, dx, dy, float4(0, 0, 1, 1));
+	return ret;
 }
