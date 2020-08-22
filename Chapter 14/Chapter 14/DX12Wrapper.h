@@ -87,10 +87,15 @@ class DX12Wrapper {
 
 	ComPtr<ID3D12RootSignature> _rs;
 	ComPtr<ID3D12PipelineState> _pp;
+	ComPtr<ID3D12PipelineState> _blurPP;
+
+	std::array<ComPtr<ID3D12Resource>, 2> _bloomBuffers;
 
 	void CreateRTVAndSRVHeap ();
 	void CreateVertex ();
 	void CreatePipeline ();
+	
+	void CreateBloomResources ();
 
 #pragma endregion
 
@@ -110,6 +115,8 @@ public:
 	void SetScene ();
 
 #pragma region Chapter 14
+
+	void DrawShrinkTextureForBlur ();
 
 	void PrePeraDraw ();
 	void PostPeraDraw ();

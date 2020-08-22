@@ -192,9 +192,10 @@ HRESULT PMDRenderer::CreateGraphicsPipelineForPMD () {
 	gpipeline.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
 	// Chapter 14
-	gpipeline.NumRenderTargets = 2;
+	gpipeline.NumRenderTargets = 3;
 	gpipeline.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	gpipeline.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpipeline.RTVFormats[2] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	gpipeline.SampleDesc.Count = 1;
 	gpipeline.SampleDesc.Quality = 0;

@@ -101,6 +101,8 @@ void Application::Run () {
 
 		_dx12->PostPeraDraw ();
 
+		_dx12->DrawShrinkTextureForBlur ();
+
 		_dx12->PreDraw ();
 		_dx12->Draw ();
 		_dx12->EndDraw ();

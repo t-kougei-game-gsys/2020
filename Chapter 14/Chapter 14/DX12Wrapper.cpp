@@ -115,8 +115,9 @@ DX12Wrapper::DX12Wrapper (HWND hwnd) {
 	}
 
 	// Chapter 14
-	CreateRTVAndSRVHeap ();
 	CreateVertex ();
+	CreateBloomResources ();
+	CreateRTVAndSRVHeap ();
 	CreatePipeline ();
 }
 
@@ -476,6 +477,34 @@ ComPtr < IDXGISwapChain4> DX12Wrapper::Swapchain () {
 
 #pragma region Chapter 14
 
+void DX12Wrapper::CreateBloomResources () {
+	HRESULT result;
+
+	D3D12_HEAP_PROPERTIES heapProp = CD3DX12_HEAP_PROPERTIES (D3D12_HEAP_TYPE_DEFAULT);
+	auto& bbuff = _backBuffers[0];
+	auto resDesc = bbuff->GetDesc ();
+
+	float clsClr[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+	D3D12_CLEAR_VALUE clearValue = CD3DX12_CLEAR_VALUE (DXGI_FORMAT_R8G8B8A8_UNORM, clsClr);
+	clearValue.Format = resDesc.Format;
+
+	for (auto& res : _bloomBuffers) {
+		result = _dev->CreateCommittedResource (
+			&heapProp,
+			D3D12_HEAP_FLAG_NONE,
+			&resDesc,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			&clearValue,
+			IID_PPV_ARGS (res.ReleaseAndGetAddressOf ())
+		);
+		resDesc.Width >>= 1;
+		if (FAILED (result)) {
+			assert (0);
+			return;
+		}
+	}
+}
+
 void DX12Wrapper::CreateRTVAndSRVHeap () {
 	HRESULT result;
 
@@ -484,7 +513,6 @@ void DX12Wrapper::CreateRTVAndSRVHeap () {
 	float clsClr[4] = {0.5f, 0.5f, 0.5f, 1.0f};
 	D3D12_CLEAR_VALUE clearValue = CD3DX12_CLEAR_VALUE (DXGI_FORMAT_R8G8B8A8_UNORM, clsClr);
 
-	
 	auto& bbuff = _backBuffers[0];
 	auto resDesc = bbuff->GetDesc ();
 
@@ -507,7 +535,7 @@ void DX12Wrapper::CreateRTVAndSRVHeap () {
 
 	// Create RTV heap
 	auto heapDesc = _rtvHeaps->GetDesc ();
-	heapDesc.NumDescriptors = 2;
+	heapDesc.NumDescriptors = 4;	
 	result = _dev->CreateDescriptorHeap (&heapDesc, IID_PPV_ARGS (_peraRTVHeap.ReleaseAndGetAddressOf ()));
 
 	if (FAILED (result)) {
@@ -525,11 +553,17 @@ void DX12Wrapper::CreateRTVAndSRVHeap () {
 		handle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 
+	// Bloom RTV
+	_dev->CreateRenderTargetView (_bloomBuffers[0].Get (), &rtvDesc, handle);
+	handle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	_dev->CreateRenderTargetView (_bloomBuffers[1].Get (), &rtvDesc, handle);
+
 	// Create SRV heap
 	// 0: Color Texture
 	// 1: Normal Texture
 	// 2: Depth Texture
-	heapDesc.NumDescriptors = 3;
+	// 3~4: Bloom Texture
+	heapDesc.NumDescriptors = 5;
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	result = _dev->CreateDescriptorHeap (&heapDesc, IID_PPV_ARGS (_peraSRVHeap.ReleaseAndGetAddressOf ()));
@@ -549,6 +583,13 @@ void DX12Wrapper::CreateRTVAndSRVHeap () {
 	// Depth SRV
 	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
 	_dev->CreateShaderResourceView (_depthBuffer.Get (), &srvDesc, handle);
+
+	// Bloom SRV
+	srvDesc.Format = rtvDesc.Format;
+	handle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	_dev->CreateShaderResourceView (_bloomBuffers[0].Get (), &srvDesc, handle);
+	handle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	_dev->CreateShaderResourceView (_bloomBuffers[1].Get (), &srvDesc, handle);
 }
 
 void DX12Wrapper::CreatePipeline () {
@@ -618,10 +659,11 @@ void DX12Wrapper::CreatePipeline () {
 	gpsDesc.SampleDesc.Quality = 0;
 	gpsDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
+	// Color, Normal, Depth, Bloom, Bloom2
 	D3D12_DESCRIPTOR_RANGE range[1] = {};
 	range[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	range[0].BaseShaderRegister = 0;
-	range[0].NumDescriptors = 3;
+	range[0].NumDescriptors = 5;
 
 	//range[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	//range[1].BaseShaderRegister = 1;
@@ -670,6 +712,27 @@ void DX12Wrapper::CreatePipeline () {
 		return;
 	}
 
+	result = D3DCompileFromFile (
+		L"BasicPS.hlsl", nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "BlurPS", "ps_5_0",
+		0, 0, ps.ReleaseAndGetAddressOf (), errBlob.ReleaseAndGetAddressOf ()
+	);
+
+	if (FAILED (result)) {
+		assert (0);
+		return;
+	}
+
+	gpsDesc.PS = CD3DX12_SHADER_BYTECODE (ps.Get ());
+	result = _dev->CreateGraphicsPipelineState (
+		&gpsDesc,
+		IID_PPV_ARGS (_blurPP.ReleaseAndGetAddressOf ())
+	);
+
+	if (FAILED (result)) {
+		assert (0);
+		return;
+	}
+
 }
 
 void DX12Wrapper::CreateVertex () {
@@ -710,36 +773,31 @@ void DX12Wrapper::CreateVertex () {
 }
 
 void DX12Wrapper::PrePeraDraw () {
-	//auto bbIdx = _swapchain->GetCurrentBackBufferIndex ();
-
-	//_cmdList->ResourceBarrier (1, &CD3DX12_RESOURCE_BARRIER::Transition (_backBuffers[bbIdx],
-	//																	 D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-
 	for (auto& res : _peraResources) {
 		_cmdList->ResourceBarrier (1, &CD3DX12_RESOURCE_BARRIER::Transition (res.Get (), 
 						D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
 						D3D12_RESOURCE_STATE_RENDER_TARGET));
 	}
 
-	auto handle = _peraRTVHeap->GetCPUDescriptorHandleForHeapStart ();
-	handle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE handles[3];
+	D3D12_CPU_DESCRIPTOR_HANDLE baseH = _peraRTVHeap->GetCPUDescriptorHandleForHeapStart ();
+	auto incSize = _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	uint32_t offset = 0;
+	for (auto& handle : handles) {
+		handle.InitOffsetted (baseH, offset);
+		offset += incSize;
+	}
 
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvH[2] = {
-		_peraRTVHeap->GetCPUDescriptorHandleForHeapStart (),
-		handle
-	};
 
 	auto dsvH = _dsvHeap->GetCPUDescriptorHandleForHeapStart ();
-	_cmdList->OMSetRenderTargets (2, rtvH, false, &dsvH);
+	_cmdList->OMSetRenderTargets (_countof (handles), handles, false, &dsvH);
 	_cmdList->ClearDepthStencilView (dsvH, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-	float clearColor[] = {0.8f, 0.8f, 0.8f, 1.0f};
-	for (int i = 0; i < _countof (rtvH); i++) {
-		auto rt = rtvH[i];
+	float clearColor[4] = {0.8f, 0.8f, 0.8f, 1.0f};
+	for (int i = 0; i < _countof (handles); i++) {
+		auto rt = handles[i];
 
 		if (i == 1) {
-			// normal
 			clearColor[0] = clearColor[1] = clearColor[2] = 0.0f;
 		}
 
@@ -761,8 +819,8 @@ void DX12Wrapper::PostPeraDraw () {
 void DX12Wrapper::PreDraw () {
 	auto bbIdx = _swapchain->GetCurrentBackBufferIndex ();
 
-	//_cmdList->RSSetViewports (1, _viewport.get ());
-	//_cmdList->RSSetScissorRects (1, _scissorRect.get ());
+	_cmdList->RSSetViewports (1, _viewport.get ());
+	_cmdList->RSSetScissorRects (1, _scissorRect.get ());
 
 	_cmdList->SetGraphicsRootSignature (_rs.Get ());
 	_cmdList->SetPipelineState (_pp.Get ());
@@ -776,19 +834,73 @@ void DX12Wrapper::PreDraw () {
 	_cmdList->ResourceBarrier (1, &CD3DX12_RESOURCE_BARRIER::Transition (_backBuffers[bbIdx],
 																		 D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	// auto dsvH = _dsvHeap->GetCPUDescriptorHandleForHeapStart ();
 	auto rtvH = _rtvHeaps->GetCPUDescriptorHandleForHeapStart ();
 	rtvH.ptr += bbIdx * _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	_cmdList->OMSetRenderTargets (1, &rtvH, false, nullptr);
 
 	float clearColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
 	_cmdList->ClearRenderTargetView (rtvH, clearColor, 0, nullptr);
-	//_cmdList->ClearDepthStencilView (dsvH, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 }
 
 void DX12Wrapper::Draw () {
 	_cmdList->IASetVertexBuffers (0, 1, &_vbv);
 	_cmdList->DrawInstanced (4, 1, 0, 0);
+}
+
+void DX12Wrapper::DrawShrinkTextureForBlur () {
+	_cmdList->SetPipelineState (_blurPP.Get ());
+	_cmdList->SetGraphicsRootSignature (_rs.Get ());
+
+	_cmdList->IASetPrimitiveTopology (D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	_cmdList->IASetVertexBuffers (0, 1, &_vbv);
+
+	_cmdList->ResourceBarrier (1, &CD3DX12_RESOURCE_BARRIER::Transition (_bloomBuffers[0].Get (),
+																		 D3D12_RESOURCE_STATE_RENDER_TARGET,
+																		 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+	_cmdList->ResourceBarrier (1, &CD3DX12_RESOURCE_BARRIER::Transition (_bloomBuffers[1].Get (),
+																		 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+																		 D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	auto rtvHandle = _peraRTVHeap->GetCPUDescriptorHandleForHeapStart ();
+	auto srvHandle = _peraSRVHeap->GetGPUDescriptorHandleForHeapStart ();
+
+	auto rtvIncSize = _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	rtvHandle.ptr += rtvIncSize * 3;
+
+	_cmdList->OMSetRenderTargets (1, &rtvHandle, false, nullptr);
+
+	srvHandle.ptr += _dev->GetDescriptorHandleIncrementSize (D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 3;
+
+	_cmdList->SetDescriptorHeaps (1, _peraSRVHeap.GetAddressOf ());
+	_cmdList->SetGraphicsRootDescriptorTable (0, srvHandle);
+
+	auto desc = _bloomBuffers[0]->GetDesc ();
+	D3D12_VIEWPORT vp = {};
+	D3D12_RECT sr = {};
+	vp.MaxDepth = 1.0f;
+	vp.MinDepth = 0.0f;
+	vp.Height = desc.Height / 2;
+	vp.Width = desc.Width / 2;
+	sr.top = 0;
+	sr.left = 0;
+	sr.right = vp.Width;
+	sr.bottom = vp.Height;
+	for (int i = 0; i < 8; ++i) {
+		_cmdList->RSSetViewports (1, &vp);
+		_cmdList->RSSetScissorRects (1, &sr);
+		_cmdList->DrawInstanced (4, 1, 0, 0);
+		sr.top += vp.Height;
+		vp.TopLeftX = 0;
+		vp.TopLeftY = sr.top;
+		vp.Width /= 2;
+		vp.Height /= 2;
+		sr.bottom = sr.top + vp.Height;
+	}
+
+	_cmdList->ResourceBarrier (1, &CD3DX12_RESOURCE_BARRIER::Transition (_bloomBuffers[1].Get (),
+																		 D3D12_RESOURCE_STATE_RENDER_TARGET,
+																		 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 }
 
 #pragma endregion

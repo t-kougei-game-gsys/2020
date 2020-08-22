@@ -9,7 +9,8 @@ struct Output {
 
 struct PS_Output {
 	float4 col : SV_TARGET0;		// color
-	float4 normal : SV_TARGET1;		// uv
+	float4 normal : SV_TARGET1;		// normal
+	float4 highLum : SV_TARGET2;	// High Luminance
 };
 
 cbuffer Material : register(b2) {
